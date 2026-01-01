@@ -506,7 +506,9 @@ Following TensorZero's session model:
   - [x] Skills folder path
 - [x] Remote mode support (connect to Hub)
 - [x] Skill loader (load Python files from skills/)
-- [ ] Skill registration with Hub (heartbeat)
+- [x] Skill registration with Hub + heartbeat
+- [x] Inject skills into LLM system prompt
+- [x] Execute skill calls from LLM responses
 
 **Deliverable:** Desktop app with chat UI, system tray, and basic configuration.
 
@@ -528,9 +530,9 @@ Following TensorZero's session model:
 - [x] Voice mode toggle (Ctrl+M)
 - [x] Voice activity indicator with animated level bars
 - [x] Voice controller (pipeline ↔ UI integration)
-- [ ] Wake word detection (Porcupine)
-- [ ] Speech-to-text (Leopard)
-- [ ] Text-to-speech (Orca)
+- [x] Wake word detection (Porcupine)
+- [x] Speech-to-text (Leopard)
+- [x] Text-to-speech (Orca)
 - [ ] Audio feedback (chimes, confirmation sounds)
 - [ ] Push-to-talk mode
 - [ ] Continuous listening mode
@@ -565,12 +567,14 @@ Following TensorZero's session model:
 **Phase:** 2 — Desktop UI
 
 **Completed:**
-- Phase 1 Terminal MVP (99 Spoke tests, 8 Hub tests passing)
-- Spoke → Hub → LLM (Gemini) → Hub → Spoke flow working
-- JWT authentication and skill registry
+- Phase 1 Terminal MVP
+- Phase 2 Desktop UI (chat, system tray, settings)
+- Phase 3 Voice (wake word, STT, TTS via Picovoice)
+- Skill system (load, register, execute, display)
+- 123 Spoke tests, 8 Hub tests passing
 
 **Next Steps:**
-1. Build PySide6 desktop UI for Spoke
-2. Implement system tray integration
-3. Add settings panel
-4. Skill loader and registration
+1. Test skill execution end-to-end ("What time is it?")
+2. Hub improvements (PostgreSQL, MQTT)
+3. Multi-device skill routing
+4. Audio feedback (chimes, sounds)
