@@ -588,20 +588,23 @@ Following TensorZero's session model:
 
 ## Current Status
 
-**Phase:** 3 — Voice Interaction
+**Phase:** 3 — Voice Interaction (nearly complete)
 
 **Completed:**
 - Phase 1 Terminal MVP
-- Phase 2 Desktop UI (chat, system tray, settings)
+- Phase 2 Desktop UI (chat, system tray, settings, mic button)
 - Phase 3 Voice (wake word, STT, TTS via Picovoice)
 - Skill system (load, register, execute, display)
 - Agent loop with skill discovery (multi-turn LLM interaction)
 - Audio feedback (generated tones for wake, recording, success, error)
-- Push-to-talk mode (Ctrl+Space)
-- 150+ Spoke tests, 8 Hub tests passing
+- Push-to-talk mode (mic button in UI)
+- Sandbox implementation (Deno + Pyodide) - secure LLM code execution
+- Remote mode (device_manager) - access skills across devices
+- Stability fixes (retry logic, timeouts, configurable LLM params)
+- 213 Spoke tests, 8 Hub tests passing
 
 **Next Steps:**
-1. Continuous listening mode (no wake word needed)
-2. Hub improvements (PostgreSQL, MQTT)
-3. Multi-device skill routing
-4. Sandbox implementation (Deno + Pyodide)
+1. Test sandbox with real Deno installation
+2. Hub MQTT broker for skill routing
+3. Continuous listening mode (no wake word needed)
+4. Hub improvements (PostgreSQL, session management)
