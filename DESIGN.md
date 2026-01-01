@@ -557,8 +557,8 @@ Following TensorZero's session model:
 - [x] Wake word detection (Porcupine)
 - [x] Speech-to-text (Leopard)
 - [x] Text-to-speech (Orca)
-- [ ] Audio feedback (chimes, confirmation sounds)
-- [ ] Push-to-talk mode
+- [x] Audio feedback (chimes, confirmation sounds) - toggleable in settings
+- [x] Push-to-talk mode (Ctrl+Space)
 - [ ] Continuous listening mode
 
 **Deliverable:** Hands-free voice interaction with visual feedback.
@@ -588,7 +588,7 @@ Following TensorZero's session model:
 
 ## Current Status
 
-**Phase:** 2 — Desktop UI
+**Phase:** 3 — Voice Interaction
 
 **Completed:**
 - Phase 1 Terminal MVP
@@ -596,10 +596,12 @@ Following TensorZero's session model:
 - Phase 3 Voice (wake word, STT, TTS via Picovoice)
 - Skill system (load, register, execute, display)
 - Agent loop with skill discovery (multi-turn LLM interaction)
-- 130+ Spoke tests, 8 Hub tests passing
+- Audio feedback (generated tones for wake, recording, success, error)
+- Push-to-talk mode (Ctrl+Space)
+- 150+ Spoke tests, 8 Hub tests passing
 
 **Next Steps:**
-1. Test agent loop end-to-end ("What time is it?" → LLM searches, calls, responds)
+1. Continuous listening mode (no wake word needed)
 2. Hub improvements (PostgreSQL, MQTT)
 3. Multi-device skill routing
-4. Audio feedback (chimes, sounds)
+4. Sandbox implementation (Deno + Pyodide)
