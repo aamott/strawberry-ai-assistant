@@ -490,22 +490,23 @@ Following TensorZero's session model:
 **Goal:** Usable desktop application with basic settings.
 
 #### Spoke
-- [ ] Desktop UI (chat window) — PySide6 (Qt for Python)
-  - [ ] Send/receive messages
-  - [ ] Display tool calls and results
-  - [ ] Show conversation history
-  - [ ] Markdown rendering
-- [ ] System tray integration
-  - [ ] Minimize to tray
-  - [ ] Quick access menu
-  - [ ] Status indicator
-- [ ] Settings panel
-  - [ ] Device name
-  - [ ] Hub URL & token
-  - [ ] Theme selection (dark/light)
-  - [ ] Skills folder path
+- [x] Desktop UI (chat window) — PySide6 (Qt for Python)
+  - [x] Send/receive messages
+  - [x] Display conversation history
+  - [x] Display tool calls and results
+  - [x] Markdown rendering with syntax highlighting
+- [x] System tray integration
+  - [x] Minimize to tray
+  - [x] Quick access menu
+  - [x] Status indicator
+- [x] Settings panel
+  - [x] Device name
+  - [x] Hub URL & token
+  - [x] Theme selection (dark/light)
+  - [x] Skills folder path
 - [x] Remote mode support (connect to Hub)
-- [ ] Skill registration with Hub
+- [x] Skill loader (load Python files from skills/)
+- [ ] Skill registration with Hub (heartbeat)
 
 **Deliverable:** Desktop app with chat UI, system tray, and basic configuration.
 
