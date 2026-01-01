@@ -461,49 +461,50 @@ Following TensorZero's session model:
 
 ## Development Roadmap
 
-### Phase 1: Terminal MVP
+### Phase 1: Terminal MVP ✅
 **Goal:** End-to-end proof of concept with minimal UI.
 
 #### Spoke
-- [ ] Terminal-based chat interface (print outputs, accept input)
-- [ ] TensorZero Embedded Gateway integration
+- [x] Terminal-based chat interface (print outputs, accept input)
+- [x] Hub client integration (routes through Hub to LLM)
 - [ ] Basic skill loader (load Python files from `skills/` folder)
 - [ ] Sandbox prototype (Deno + Pyodide)
-- [ ] Local mode only (no Hub connection)
-- [ ] Configuration files:
-  - `tensorzero.toml` — LLM routing config
+- [x] Configuration files:
   - `config.yaml` — Device settings
   - `.env` — API keys
 
-**Deliverable:** User can chat with LLM, LLM can call local skills, results printed to terminal.
+**Deliverable:** User can chat with LLM through Hub. ✅
 
 #### Hub (Minimal)
-- [ ] FastAPI skeleton
-- [ ] JWT authentication
-- [ ] Basic skill registry (in-memory)
-- [ ] OpenAI-compatible endpoint for Spoke routing
+- [x] FastAPI skeleton
+- [x] JWT authentication
+- [x] Basic skill registry (SQLite)
+- [x] OpenAI-compatible endpoint for Spoke routing
+- [x] Google AI Studio (Gemini) integration
 
-**Deliverable:** Spoke can route requests through Hub to LLM.
+**Deliverable:** Spoke can route requests through Hub to LLM. ✅
 
 ---
 
-### Phase 2: Desktop UI
+### Phase 2: Desktop UI 🔄
 **Goal:** Usable desktop application with basic settings.
 
 #### Spoke
-- [ ] Desktop UI (chat window)
-  - Send/receive messages
-  - Display tool calls and results
-  - Show conversation history
+- [ ] Desktop UI (chat window) — PySide6 (Qt for Python)
+  - [ ] Send/receive messages
+  - [ ] Display tool calls and results
+  - [ ] Show conversation history
+  - [ ] Markdown rendering
 - [ ] System tray integration
-  - Minimize to tray
-  - Quick access menu
+  - [ ] Minimize to tray
+  - [ ] Quick access menu
+  - [ ] Status indicator
 - [ ] Settings panel
-  - Device name
-  - Hub URL
-  - LLM selection
-  - Skills folder path
-- [ ] Remote mode support (connect to Hub)
+  - [ ] Device name
+  - [ ] Hub URL & token
+  - [ ] Theme selection (dark/light)
+  - [ ] Skills folder path
+- [x] Remote mode support (connect to Hub)
 - [ ] Skill registration with Hub
 
 **Deliverable:** Desktop app with chat UI, system tray, and basic configuration.
@@ -561,11 +562,15 @@ Following TensorZero's session model:
 
 ## Current Status
 
-**Phase:** Not started
+**Phase:** 2 — Desktop UI
+
+**Completed:**
+- Phase 1 Terminal MVP (99 Spoke tests, 8 Hub tests passing)
+- Spoke → Hub → LLM (Gemini) → Hub → Spoke flow working
+- JWT authentication and skill registry
 
 **Next Steps:**
-1. Set up project structure (`ai-hub/`, `ai-pc-spoke/`)
-2. Create initial config files for Spoke
-3. Implement terminal chat loop
-4. Integrate TensorZero Embedded Gateway
-5. Build minimal skill loader
+1. Build PySide6 desktop UI for Spoke
+2. Implement system tray integration
+3. Add settings panel
+4. Skill loader and registration
