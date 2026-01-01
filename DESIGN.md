@@ -521,20 +521,19 @@ Following TensorZero's session model:
 
 ---
 
-### Phase 3: Voice Interaction
+### Phase 3: Voice Interaction 🔄
 **Goal:** Full voice assistant experience.
 
 #### Spoke
-- [ ] Wake word detection ("Hey Strawberry" or custom)
-- [ ] Speech-to-text (local or cloud)
-- [ ] Text-to-speech for responses
+- [x] Voice mode toggle (Ctrl+M)
+- [x] Voice activity indicator with animated level bars
+- [x] Voice controller (pipeline ↔ UI integration)
+- [ ] Wake word detection (Porcupine)
+- [ ] Speech-to-text (Leopard)
+- [ ] Text-to-speech (Orca)
 - [ ] Audio feedback (chimes, confirmation sounds)
 - [ ] Push-to-talk mode
 - [ ] Continuous listening mode
-- [ ] UI updates:
-  - Voice activity indicator
-  - Waveform visualization
-  - Transcript display
 
 **Deliverable:** Hands-free voice interaction with visual feedback.
 
