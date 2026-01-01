@@ -4,7 +4,7 @@ A voice assistant platform using a hub-and-spoke architecture.
 
 ## Overview
 
-**Hub**: Handles AI interaction, chat history, user accounts, sessions, LLM orchestration, skill registry, and MQTT broker.
+**Hub**: Handles AI interaction, chat history, user accounts, sessions, LLM orchestration, and skill registry.
 
 **Spokes**: Devices that provide voice and text/chat interaction and run skill code. Each spoke can operate in local mode (offline) or remote mode (connected to Hub).
 
@@ -331,17 +331,29 @@ device_manager.Bedroom_Light.SmartHomeSkill.turn_on()
 
 ### Remote Skill Call Flow
 
-All remote skill calls route through the Hub, regardless of target device:
+Spokes maintain a persistent WebSocket connection to the Hub. Skill calls route through this connection:
 
 ```
 Spoke A calls skill on Spoke B:
-    Spoke A → Hub MQTT → Spoke B Skill Service → Hub MQTT → Spoke A
+    Spoke A → HTTP POST /skills/execute → Hub → WebSocket push to Spoke B → Result → Spoke A
 
 Spoke A calls skill on itself (remote mode):
-    Spoke A → Hub MQTT → Spoke A Skill Service → Hub MQTT → Spoke A
+    Spoke A → HTTP POST /skills/execute → Hub → WebSocket push to Spoke A → Result → Spoke A
 ```
 
-This uniform routing simplifies the architecture—all skill calls are treated identically.
+**Why WebSocket instead of HTTP callbacks or MQTT?**
+- **No server on Spoke**: Spokes don't need to run an HTTP server (saves memory/battery)
+- **Works through NAT**: Connection is outbound-only (works on coffee shop WiFi)
+- **Low overhead**: Single persistent TCP connection with keep-alives
+- **No broker needed**: Hub acts as message router (unlike MQTT)
+- Built-in to FastAPI (no new dependencies on Hub)
+- Heartbeat already maintains connection liveness
+
+**Connection Lifecycle:**
+- Spoke connects to `ws://{hub}/ws/device?token={jwt}` on startup
+- Hub tracks active connections in `ConnectionManager`
+- Reconnection with exponential backoff on disconnect
+- Connection timeout: 30 seconds for skill calls
 
 **Error Handling:**
 - If target device is offline: Returns error message for LLM to handle
@@ -420,12 +432,30 @@ The Hub maintains a database of all registered skills:
 **Duplicate Skill Handling:**
 When multiple devices have the same skill (e.g., `set_volume`), the registry tracks all instances. The LLM can target a specific device or let it default to the current device.
 
-### MQTT Broker
+### Skill Routing (WebSocket)
 
-Handles all skill call routing between Spokes:
-- Request/response pattern with correlation IDs
-- Timeout handling (configurable per-skill)
-- Device presence tracking
+The Hub maintains WebSocket connections to all active Spokes and routes skill calls through them:
+
+```
+POST /skills/execute
+{
+    "device_name": "TV",
+    "skill_name": "MediaControlSkill",
+    "method_name": "set_volume",
+    "args": [50],
+    "kwargs": {}
+}
+
+WebSocket endpoint: ws://{hub}/ws/device?token={jwt}
+```
+
+**Features:**
+- Spokes connect via WebSocket on startup (no callback server needed)
+- `ConnectionManager` tracks active connections by device_id
+- Skill requests pushed to target device over WebSocket
+- Synchronous request/response with timeout (30s default)
+- JWT authentication on all connections
+- Automatic reconnection with exponential backoff
 
 ### Session Management
 
@@ -459,7 +489,7 @@ Following TensorZero's session model:
 **Access Control:**
 - Spokes can only access skills registered by the same user account
 - Local network only—no external exposure required
-- Standard HTTPS for Hub API, TLS for MQTT
+- Standard HTTPS for all Hub API endpoints
 
 ---
 
@@ -538,8 +568,8 @@ Following TensorZero's session model:
 
 #### Hub
 - [ ] PostgreSQL for persistent storage
-- [ ] MQTT broker integration
-- [ ] Remote skill call routing
+- [ ] Remote skill call routing (HTTP)
+- [ ] Spoke callback registration (for receiving skill calls)
 - [ ] Device management API
 - [ ] Basic web UI for device tokens
 
@@ -605,6 +635,7 @@ Following TensorZero's session model:
 
 **Next Steps:**
 1. Test sandbox with real Deno installation
-2. Hub MQTT broker for skill routing
-3. Continuous listening mode (no wake word needed)
-4. Hub improvements (PostgreSQL, session management)
+2. Hub HTTP skill routing (POST /skills/execute)
+3. Spoke callback endpoint for receiving skill calls
+4. Continuous listening mode (no wake word needed)
+5. Hub improvements (PostgreSQL, session management)
