@@ -47,13 +47,28 @@ async with await AsyncTensorZeroGateway.build_embedded(
 - `config.yaml` — Spoke-specific settings (device name, Hub URL, skills path)
 - `.env` — API keys and secrets
 
-### Response Handling
+### Response Handling (Agent Loop)
 
-A single user prompt can result in multiple responses from the LLM:
-1. Text responses (displayed to the user)
-2. Skill calls (executed by the sandbox)
+The Spoke runs an **agent loop** that allows the LLM to make multiple calls and see results:
 
-All responses are processed in order. After each skill call, the LLM can decide to continue (more text/skills) or stop.
+```
+User prompt → LLM → Execute code → Send results → LLM → ... → Final response
+```
+
+**Flow:**
+1. User sends message
+2. LLM responds (may include `python` code blocks)
+3. Spoke executes code blocks, captures output
+4. Output sent back to LLM as a "tool" message
+5. LLM continues (more code or final text response)
+6. Loop ends when LLM responds without code blocks (max 5 iterations)
+
+**Key Capabilities:**
+- `device.search_skills("query")` - Find skills by keyword
+- `device.describe_function("SkillName.method")` - Get function details
+- `device.SkillName.method(args)` - Execute a skill
+
+This allows the LLM to discover skills dynamically rather than needing them all in the system prompt.
 
 ## The Sandbox
 
@@ -217,16 +232,23 @@ When the Hub is offline, skills are loaded from local Python files on the device
 ```python
 device: Device  # Container for all local skills
 
-device.search_skills(query: str = "") -> List[SkillResult]
-# Search for skills using natural language
+device.search_skills(query: str = "") -> List[dict]
+# Search for skills by keyword (matches name, signature, docstring)
+# Returns: [{"path": "ClassName.method", "signature": "...", "summary": "..."}]
 
 device.describe_function(path: str) -> str
-# Get function signature + full docstring
+# Get full function signature with docstring
 # Path format: "ClassName.function_name"
 
 device.SkillClassName.function_name(...)
 # Call a skill function directly
 ```
+
+**Why Discovery Functions?**
+- LLM doesn't need all skills in system prompt (scales better)
+- LLM can search for relevant skills based on user request
+- Reduces prompt size and token usage
+- LLM learns skill signatures at runtime
 
 **Example: `device.search_skills("music")`**
 ```python
@@ -509,6 +531,8 @@ Following TensorZero's session model:
 - [x] Skill registration with Hub + heartbeat
 - [x] Inject skills into LLM system prompt
 - [x] Execute skill calls from LLM responses
+- [x] Agent loop (multi-turn skill calls with results)
+- [x] Skill discovery API (search_skills, describe_function)
 
 **Deliverable:** Desktop app with chat UI, system tray, and basic configuration.
 
@@ -571,10 +595,11 @@ Following TensorZero's session model:
 - Phase 2 Desktop UI (chat, system tray, settings)
 - Phase 3 Voice (wake word, STT, TTS via Picovoice)
 - Skill system (load, register, execute, display)
-- 123 Spoke tests, 8 Hub tests passing
+- Agent loop with skill discovery (multi-turn LLM interaction)
+- 130+ Spoke tests, 8 Hub tests passing
 
 **Next Steps:**
-1. Test skill execution end-to-end ("What time is it?")
+1. Test agent loop end-to-end ("What time is it?" → LLM searches, calls, responds)
 2. Hub improvements (PostgreSQL, MQTT)
 3. Multi-device skill routing
 4. Audio feedback (chimes, sounds)

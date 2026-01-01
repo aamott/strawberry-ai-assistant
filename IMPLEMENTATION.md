@@ -1622,6 +1622,248 @@ dev = [
 
 ---
 
+---
+
+## Agent Loop Implementation
+
+The Spoke implements an agent loop that allows the LLM to make multiple skill calls and see results before responding.
+
+### Agent Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Spoke
+    participant LLM
+    participant Skills
+
+    User->>Spoke: "Play some jazz music"
+    
+    loop Agent Loop (max 5 iterations)
+        Spoke->>LLM: messages + system prompt
+        LLM->>Spoke: response (may include code)
+        
+        alt Has code blocks
+            Spoke->>Skills: execute code
+            Skills->>Spoke: output/result
+            Spoke->>Spoke: append tool message
+        else No code blocks
+            Spoke->>User: display final response
+        end
+    end
+```
+
+### Device Proxy with Discovery
+
+```python
+# src/strawberry/skills/service.py (additions)
+
+class _DeviceProxy:
+    """Proxy object for LLM to interact with skills."""
+    
+    def __init__(self, loader: SkillLoader):
+        self._loader = loader
+    
+    def search_skills(self, query: str = "") -> List[dict]:
+        """Search for skills by keyword.
+        
+        Args:
+            query: Search term (matches name, signature, docstring)
+            
+        Returns:
+            List of matching skills with path, signature, summary
+        """
+        results = []
+        for skill in self._loader.get_all_skills():
+            for method in skill.methods:
+                # Check if query matches
+                if (not query or
+                    query.lower() in method.name.lower() or
+                    query.lower() in skill.name.lower() or
+                    (method.docstring and query.lower() in method.docstring.lower())):
+                    
+                    results.append({
+                        "path": f"{skill.name}.{method.name}",
+                        "signature": method.signature,
+                        "summary": (method.docstring or "").split("\n")[0],
+                    })
+        return results
+    
+    def describe_function(self, path: str) -> str:
+        """Get full function details.
+        
+        Args:
+            path: "SkillName.method_name"
+            
+        Returns:
+            Full signature with docstring
+        """
+        parts = path.split(".")
+        if len(parts) != 2:
+            return f"Invalid path: {path}"
+        
+        skill_name, method_name = parts
+        skill = self._loader.get_skill(skill_name)
+        
+        if not skill:
+            return f"Skill not found: {skill_name}"
+        
+        for method in skill.methods:
+            if method.name == method_name:
+                doc = method.docstring or "No description"
+                return f"def {method.signature}:\n    \"\"\"{doc}\"\"\""
+        
+        return f"Method not found: {method_name}"
+    
+    def __getattr__(self, name: str):
+        """Get skill class for direct calls."""
+        skill = self._loader.get_skill(name)
+        if skill is None:
+            raise AttributeError(f"Skill not found: {name}")
+        return _SkillProxy(self._loader, name)
+```
+
+### Agent Loop Implementation
+
+```python
+# In main_window.py or skill_service.py
+
+async def run_agent_loop(
+    hub_client: HubClient,
+    skill_service: SkillService,
+    user_message: str,
+    conversation_history: List[ChatMessage],
+    max_iterations: int = 5,
+) -> Tuple[str, List[dict]]:
+    """Run the agent loop until LLM responds without code.
+    
+    Args:
+        hub_client: Hub client for LLM calls
+        skill_service: Skill service for execution
+        user_message: User's message
+        conversation_history: Previous messages
+        max_iterations: Max loop iterations
+        
+    Returns:
+        (final_response, list_of_tool_calls)
+    """
+    # Build initial messages
+    messages = [
+        ChatMessage(role="system", content=skill_service.get_system_prompt()),
+        *conversation_history,
+        ChatMessage(role="user", content=user_message),
+    ]
+    
+    all_tool_calls = []
+    
+    for iteration in range(max_iterations):
+        # Get LLM response
+        response = await hub_client.chat(messages)
+        
+        # Parse for code blocks
+        code_blocks = skill_service.parse_skill_calls(response.content)
+        
+        if not code_blocks:
+            # No code = agent is done
+            return response.content, all_tool_calls
+        
+        # Execute code blocks and collect results
+        outputs = []
+        for code in code_blocks:
+            result = skill_service.execute_code(code)
+            
+            all_tool_calls.append({
+                "iteration": iteration + 1,
+                "code": code,
+                "success": result.success,
+                "result": result.result,
+                "error": result.error,
+            })
+            
+            if result.success:
+                outputs.append(result.result or "")
+            else:
+                outputs.append(f"Error: {result.error}")
+        
+        # Add assistant message and tool results to history
+        messages.append(ChatMessage(role="assistant", content=response.content))
+        messages.append(ChatMessage(role="tool", content="\n".join(outputs)))
+    
+    # Max iterations reached - return last response
+    return response.content, all_tool_calls
+```
+
+### Updated System Prompt
+
+```python
+SYSTEM_PROMPT = '''You are Strawberry, a helpful AI assistant with access to skills on this device.
+
+## How to Use Skills
+
+You can discover and call skills using Python code blocks:
+
+```python
+# Search for skills by keyword
+results = device.search_skills("lights")
+print(results)
+```
+
+```python
+# Get details about a specific function  
+info = device.describe_function("SmartHomeSkill.turn_on")
+print(info)
+```
+
+```python
+# Call a skill
+result = device.SmartHomeSkill.turn_on(room="Living Room")
+print(result)
+```
+
+## Workflow
+
+1. If you're not sure what skills are available, search first
+2. Use describe_function() to see full signatures and parameters
+3. Call the skill with appropriate arguments
+4. Always use print() to see output
+5. When done, respond naturally without code blocks
+
+## Important
+
+- Search before calling if you don't know the exact skill name
+- Handle errors gracefully - explain to user if something fails
+- You can make multiple calls to accomplish a task
+- Your final response (without code) ends the conversation turn
+'''
+```
+
+### UI Updates for Agent Loop
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 👤 Play some relaxing music                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ 🤖 Let me find music-related skills...                          │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ 🔍 Iteration 1: Skill Search                                │ │
+│ │    device.search_skills("music")                            │ │
+│ │    Found: MusicSkill.play, MusicSkill.pause, ...            │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ⚡ Iteration 2: Skill Call                                  │ │
+│ │    device.MusicSkill.play(genre="relaxing")                 │ │
+│ │    ✅ Now playing: Relaxing Piano Mix                       │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ I've started playing some relaxing piano music for you! 🎵      │
+│ Let me know if you'd like something different.                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Next Steps
 
 Ready to start implementation. Recommended order:
