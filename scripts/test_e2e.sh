@@ -28,19 +28,42 @@ else
 fi
 echo ""
 
-# Register a test device
-echo -e "${YELLOW}Step 2: Register test device${NC}"
-REGISTER_RESPONSE=$(curl -s -X POST http://localhost:8000/auth/register \
-    -H "Content-Type: application/json" \
-    -d '{"name": "E2E Test Device", "user_id": "test_user"}')
+# Create/login user, then create device token
+echo -e "${YELLOW}Step 2: Create/login user and create device token${NC}"
+USER_COUNT=$(curl -s http://localhost:8000/api/users/count)
 
-if echo "$REGISTER_RESPONSE" | grep -q '"access_token"'; then
-    TOKEN=$(echo "$REGISTER_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
-    echo -e "${GREEN}✓ Device registered${NC}"
-    echo -e "  Token: ${TOKEN:0:20}..."
+if [ "$USER_COUNT" = "0" ]; then
+    echo -e "${CYAN}No users found. Creating initial admin user...${NC}"
+    USER_TOKEN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/users/setup \
+        -H "Content-Type: application/json" \
+        -d '{"username": "admin", "password": "password"}')
 else
-    echo -e "${RED}✗ Failed to register device${NC}"
-    echo "$REGISTER_RESPONSE"
+    echo -e "${CYAN}Users exist. Logging in...${NC}"
+    USER_TOKEN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/users/login \
+        -H "Content-Type: application/json" \
+        -d '{"username": "admin", "password": "password"}')
+fi
+
+if echo "$USER_TOKEN_RESPONSE" | grep -q '"access_token"'; then
+    USER_TOKEN=$(echo "$USER_TOKEN_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+else
+    echo -e "${RED}✗ Failed to create/login user${NC}"
+    echo "$USER_TOKEN_RESPONSE"
+    exit 1
+fi
+
+DEVICE_TOKEN_RESPONSE=$(curl -s -X POST http://localhost:8000/api/devices/token \
+    -H "Authorization: Bearer $USER_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "E2E Test Device"}')
+
+if echo "$DEVICE_TOKEN_RESPONSE" | grep -q '"token"'; then
+    DEVICE_TOKEN=$(echo "$DEVICE_TOKEN_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])")
+    echo -e "${GREEN}✓ Device token created${NC}"
+    echo -e "  Token: ${DEVICE_TOKEN:0:20}..."
+else
+    echo -e "${RED}✗ Failed to create device token${NC}"
+    echo "$DEVICE_TOKEN_RESPONSE"
     exit 1
 fi
 echo ""
@@ -48,7 +71,7 @@ echo ""
 # Test auth/me endpoint
 echo -e "${YELLOW}Step 3: Verify authentication${NC}"
 ME_RESPONSE=$(curl -s http://localhost:8000/auth/me \
-    -H "Authorization: Bearer $TOKEN")
+    -H "Authorization: Bearer $DEVICE_TOKEN")
 
 if echo "$ME_RESPONSE" | grep -q '"name":"E2E Test Device"'; then
     echo -e "${GREEN}✓ Authentication working${NC}"
@@ -61,8 +84,8 @@ echo ""
 
 # Test chat endpoint (if LLM configured)
 echo -e "${YELLOW}Step 4: Test chat endpoint${NC}"
-CHAT_RESPONSE=$(curl -s -X POST http://localhost:8000/v1/chat/completions \
-    -H "Authorization: Bearer $TOKEN" \
+CHAT_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/chat/completions \
+    -H "Authorization: Bearer $DEVICE_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"messages": [{"role": "user", "content": "Say hello in exactly 5 words."}]}' \
     --max-time 30)
@@ -80,7 +103,7 @@ echo ""
 # Test skill registration
 echo -e "${YELLOW}Step 5: Test skill registration${NC}"
 SKILL_RESPONSE=$(curl -s -X POST http://localhost:8000/skills/register \
-    -H "Authorization: Bearer $TOKEN" \
+    -H "Authorization: Bearer $DEVICE_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"skills": [{"class_name": "TestSkill", "function_name": "test_func", "signature": "test_func() -> str", "docstring": "A test function"}]}')
 
@@ -96,7 +119,7 @@ echo ""
 # List skills
 echo -e "${YELLOW}Step 6: List skills${NC}"
 LIST_RESPONSE=$(curl -s http://localhost:8000/skills \
-    -H "Authorization: Bearer $TOKEN")
+    -H "Authorization: Bearer $DEVICE_TOKEN")
 
 if echo "$LIST_RESPONSE" | grep -q '"skills"'; then
     TOTAL=$(echo "$LIST_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['total'])" 2>/dev/null || echo "?")
@@ -111,7 +134,6 @@ echo ""
 echo -e "${CYAN}=== All Tests Passed ===${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Set HUB_TOKEN=$TOKEN in ai-pc-spoke/.env"
+echo "  1. Set HUB_DEVICE_TOKEN=$DEVICE_TOKEN in ai-pc-spoke/.env"
 echo "  2. Run Spoke: cd ai-pc-spoke && source .venv/bin/activate && python -m strawberry.main"
 echo "  3. Chat with the AI!"
-

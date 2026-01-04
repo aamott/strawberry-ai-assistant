@@ -2,6 +2,59 @@
 
 This document details the technical implementation of the Spoke application, focusing on the voice interaction pipeline and modular architecture.
 
+## Status (Read This First)
+
+This file contains a mix of:
+
+- **Current architecture notes** (kept up to date)
+- **Legacy plan content** (below; not actively maintained)
+
+If you want to understand what’s actually implemented today, start here and treat the rest of the file as historical context.
+
+## Current Implementation (Source of Truth)
+
+- **Spoke package**: `ai-pc-spoke/src/strawberry/`
+  - **Audio stream (single stream + rolling buffer)**: `audio/stream.py`
+  - **Conversation pipeline**: `pipeline/conversation.py` (+ `pipeline/events.py`)
+  - **Backends**:
+    - `audio/backends/sounddevice_backend.py` (pvrecorder backend is planned, not implemented)
+    - `wake/backends/porcupine.py`
+    - `vad/backends/silero.py` (cobra backend is planned, not implemented)
+    - `stt/backends/leopard.py` (google backend is planned, not implemented)
+    - `tts/backends/orca.py` (google backend is planned, not implemented)
+  - **Hub client**: `hub/client.py`
+  - **UI**: `ui/` (treat code as authoritative; UI documentation below is outdated)
+
+## Conversation Pipeline Invariants (Verified)
+
+- **Single open mic stream**: `AudioStream` keeps the microphone capture thread running continuously.
+  - Frames are distributed to subscribers without stopping/restarting the backend.
+- **No lost audio between wake word and recording**:
+  - `AudioStream` maintains a rolling buffer.
+  - When the wake word is detected, `ConversationPipeline` pulls a *lookback* slice via `AudioStream.get_buffer(...)` and prepends it to the recording buffer.
+- **Interrupt during TTS**:
+  - While the pipeline is in `SPEAKING`, incoming mic frames are still processed.
+  - If interrupts are enabled, the pipeline checks for the wake word and can transition back into `RECORDING`.
+
+## Backend Modularity (Current Status)
+
+The settings model (`config/settings.py`) already exposes backend selection knobs (audio/VAD/STT/TTS), but **the runtime wiring is not fully implemented** (e.g., choosing `google` vs `leopard`, `sounddevice` vs `pvrecorder`, etc.).
+
+Tracked in: `ai-pc-spoke/README.md` under **TODO (Backend Selection + UI Docs)**.
+
+## Hub API Paths (Current)
+
+- **Chat**: `POST /api/v1/chat/completions`
+- **Inference**: `POST /api/inference`
+- **Auth**: `/auth/*`
+- **Skills**: `/skills/*` (including `/skills/search`, `/skills/register`, `/skills/heartbeat`, `/skills/execute`)
+
+---
+
+## Legacy Plan Content (Outdated)
+<details>
+<summary>Legacy plan content (outdated)</summary>
+
 ---
 
 ## Table of Contents
@@ -1880,4 +1933,6 @@ Ready to start implementation. Recommended order:
 10. **Integrate TensorZero**
 
 Shall I start with step 1?
+
+</details>
 

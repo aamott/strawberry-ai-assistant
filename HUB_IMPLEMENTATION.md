@@ -164,19 +164,22 @@ sequenceDiagram
     participant Hub as Hub API
     participant DB as Database
 
-    User->>Hub: POST /auth/register
-    Note right of Hub: {name, user_id}
-    
+    User->>Hub: POST /api/users/login
+    Note right of Hub: {username, password}
+
+    Hub-->>User: {access_token (user)}
+
+    User->>Hub: POST /api/devices/token
+    Note right of Hub: {name} + Authorization: Bearer <user token>
+
     Hub->>Hub: Generate device_id (UUID)
-    Hub->>Hub: Generate access_token (JWT)
-    Hub->>Hub: Hash token for storage
-    
-    Hub->>DB: Create Device record
+    Hub->>Hub: Generate token (JWT)
+    Hub->>DB: Create Device record (user_id = current_user.id)
     DB-->>Hub: OK
-    
-    Hub-->>User: {device_id, access_token}
-    
-    Note over User: Store token in Spoke config
+
+    Hub-->>User: {device, token}
+
+    Note over User: Store device token in Spoke config
 ```
 
 #### AuthService Implementation
@@ -349,45 +352,14 @@ class LLMService:
         raise LLMError(f"All providers failed: {last_error}")
 ```
 
-#### Skill Injection
+#### Skill Prompt Injection (Spoke-Side)
 
-Before sending to the LLM, the Hub injects available skills into the system prompt:
-
-```python
-def inject_skills_prompt(
-    messages: List[ChatMessage],
-    skills: List[SkillInfo],
-    device_name: str,
-) -> List[ChatMessage]:
-    """Inject skill information into the system prompt."""
-    
-    skills_prompt = format_skills_as_python(skills, device_name)
-    
-    system_content = f"""You are a helpful voice assistant called Strawberry AI.
-
-You have access to the following skills that you can call by writing Python code:
-
-```python
-{skills_prompt}
-```
-
-When you need to perform an action, write Python code to call the appropriate skill.
-The code will be executed and the result returned to you.
-
-Important:
-- If no device is specified, assume the current device ({device_name}).
-- Search for skills before assuming they don't exist.
-- Handle errors gracefully and inform the user.
-"""
-    
-    # Prepend system message or merge with existing
-    if messages and messages[0].role == "system":
-        messages[0].content = system_content + "\n\n" + messages[0].content
-    else:
-        messages.insert(0, ChatMessage(role="system", content=system_content))
-    
-    return messages
-```
+> **Note:** Skill injection into LLM prompts is handled by the **Spoke**, not the Hub.
+> The Spoke's `SkillService.get_system_prompt()` builds the system prompt with available
+> skills before sending chat requests. This keeps the Hub simple (a pass-through LLM gateway)
+> and allows each Spoke to customize its prompt based on local and remote skills.
+>
+> See `ai-pc-spoke/src/strawberry/skills/service.py` for the implementation.
 
 ---
 
@@ -645,26 +617,6 @@ Message format (response):
 }
 ```
 
-This is deferred to Phase 2.
-
----
-
-## API Specification
-
-### Authentication Endpoints
-
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| POST | `/auth/register` | Register new device | No |
-| GET | `/auth/me` | Get current device info | Yes |
-| POST | `/auth/refresh` | Refresh access token | Yes |
-
-### Chat Endpoints
-
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| POST | `/v1/chat/completions` | OpenAI-compatible chat | Yes |
-| POST | `/inference` | TensorZero-style inference | Yes |
 
 ### Skill Endpoints
 
@@ -920,9 +872,9 @@ hub:
 [x] Database models (Device, Skill, Session, Message)
 [x] JWT authentication
 [x] Device registration endpoint
-[ ] Chat endpoint with Google AI Studio
-[ ] Basic skill registry (register, list, heartbeat)
-[ ] Tests for all endpoints
+[x] Chat endpoint with Google AI Studio
+[x] Basic skill registry (register, list, heartbeat)
+[x] Tests for auth and skills endpoints
 ```
 
 **Deliverable:** Spoke can authenticate and get LLM responses through Hub.
@@ -932,13 +884,13 @@ hub:
 ### Phase 2: Full Skill Registry
 
 ```
-[ ] Skill search endpoint
-[ ] Skill injection into LLM prompts
+[x] Skill search endpoint
+[x] Skill injection into LLM prompts - N/A (Spoke handles this, see note above)
 [ ] Session management
 [ ] Conversation history
-[ ] Device management endpoints
-[ ] Spoke Hub client implementation
-[ ] Spoke skill loader
+[x] Device management endpoints
+[x] Spoke Hub client implementation
+[x] Spoke skill loader
 ```
 
 **Deliverable:** Spoke registers skills with Hub, Hub provides skill context to LLM.
@@ -1013,14 +965,20 @@ async def client(db_engine):
 @pytest.fixture
 async def auth_client(client):
     """Create authenticated test client."""
-    response = await client.post(
-        "/auth/register",
-        json={"name": "Test Device", "user_id": "test_user"},
+    token_response = await client.post(
+        "/api/users/setup",
+        json={"username": "admin", "password": "password"},
     )
-    token = response.json()["access_token"]
-    client.headers["Authorization"] = f"Bearer {token}"
+    user_token = token_response.json()["access_token"]
+
+    device_response = await client.post(
+        "/api/devices/token",
+        json={"name": "Test Device"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    device_token = device_response.json()["token"]
+    client.headers["Authorization"] = f"Bearer {device_token}"
     yield client
-```
 
 ### Integration Tests
 

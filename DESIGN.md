@@ -49,26 +49,59 @@ async with await AsyncTensorZeroGateway.build_embedded(
 
 ### Response Handling (Agent Loop)
 
-The Spoke runs an **agent loop** that allows the LLM to make multiple calls and see results:
+The Spoke runs an **agent loop** that allows the LLM to make multiple tool calls and see results:
 
 ```
-User prompt → LLM → Execute code → Send results → LLM → ... → Final response
+User prompt → LLM → Execute tool calls → Send results → LLM → ... → Final response
 ```
 
 **Flow:**
 1. User sends message
-2. LLM responds (may include `python` code blocks)
-3. Spoke executes code blocks, captures output
-4. Output sent back to LLM as a "tool" message
-5. LLM continues (more code or final text response)
-6. Loop ends when LLM responds without code blocks (max 5 iterations)
+2. LLM responds with `ToolCall` objects (TensorZero parses these natively)
+3. Spoke executes tool calls, captures output
+4. Output sent back to LLM as `tool_result` messages
+5. LLM continues (more tool calls or final text response)
+6. Loop ends when LLM responds without tool calls (max iterations configurable)
 
-**Key Capabilities:**
-- `device.search_skills("query")` - Find skills by keyword
-- `device.describe_function("SkillName.method")` - Get function details
-- `device.SkillName.method(args)` - Execute a skill
+**TensorZero Tool Calling:**
 
-This allows the LLM to discover skills dynamically rather than needing them all in the system prompt.
+Tools are defined in `tensorzero.toml` with JSON Schema parameters. TensorZero handles parsing tool calls from LLM responses - no custom XML parsing needed.
+
+```python
+# Example: Processing tool calls from TensorZero response
+from tensorzero import ToolCall
+
+tool_calls = [block for block in response.content if isinstance(block, ToolCall)]
+for tool_call in tool_calls:
+    result = execute_tool(tool_call.name, tool_call.arguments)
+    # Return result as tool_result message
+```
+
+**Available Tools (defined in tensorzero.toml):**
+- `search_skills(query: str = "")` - Find skills by keyword, returns grouped skills with sample devices and device count (use `device_limit` to request a larger sample)
+- `describe_function(path: str)` - Get full function signature with docstring
+- `python_exec(code: str)` - Execute Python code in sandbox
+
+**Dual Availability:**
+`search_skills` and `describe_function` are available both as:
+1. Direct TensorZero tool calls
+2. Methods on `device`/`device_manager` inside `python_exec` code
+
+This allows flexibility if the LLM prefers one approach over the other.
+
+**Display-only code blocks** (` ```python `) show examples to users without execution.
+
+**Error Handling:**
+- Tool errors return as `tool_result` with error details
+- Exceptions inside `python_exec` return as Python traceback output
+- Device offline errors include device name and suggestion to try alternatives
+
+**Why This Design:**
+- TensorZero native parsing (no custom XML)
+- Prevents accidental execution of tutorial/example code
+- Supports multi-turn workflows (search → inspect → execute)
+- Clear security boundary: all code runs in sandbox, only skill calls bridge to real resources
+- Allows LLM to discover skills dynamically rather than needing them all in the system prompt
 
 ## The Sandbox
 
@@ -153,13 +186,31 @@ Since the Guest cannot access system hardware directly, it interacts with the Ho
 
 ### Proxy Generation
 
-Proxy Objects are generated **at skill registration time**, not dynamically:
-
+**Skill Proxies:** Generated at skill registration time and cached:
 1. When a skill is registered (or updated), the Skill Runner generates Proxy code
 2. Proxy code is cached and ready for injection
 3. On sandbox init, pre-generated Proxies are injected immediately
 
-This ensures fast sandbox startup since skills rarely change at runtime.
+**Device Proxies (online mode):** Use Python's `__getattr__` for dynamic access:
+```python
+class DeviceManagerProxy:
+    def __getattr__(self, device_name: str) -> DeviceProxy:
+        # Devices may connect/disconnect during a chat session
+        # __getattr__ allows access to newly connected devices immediately
+        return DeviceProxy(device_name, self._bridge)
+```
+
+This ensures:
+- Fast sandbox startup (skill proxies pre-generated)
+- Dynamic device access (devices can join/leave during conversation)
+- No code regeneration needed when devices connect/disconnect
+
+**Device Name Normalization:**
+Device names are normalized to valid Python identifiers:
+- Lowercase + replace spaces/hyphens with underscores
+- Example: "Living Room PC" → `living_room_pc`
+- Mapping stored in Hub: `display_name → normalized_name`
+- Collision detection on registration (reject if normalized name already exists)
 
 ### Bridge Communication Flow
 
@@ -172,11 +223,35 @@ This ensures fast sandbox startup since skills rarely change at runtime.
    {"call": "lights.turn_on", "args": [], "kwargs": {}}
    ```
 
-4. **Transport:** Serialized request sent across Wasm boundary via secure memory bridge or stdio.
+4. **Transport:** Newline-delimited JSON over stdio (stdin/stdout between Python and Deno process).
+   - Each message is a single JSON object followed by `\n`
+   - Request IDs (UUIDs) correlate requests with responses
+   - Message types: `execute`, `call`, `result`, `complete`, `error`
 
 5. **Gatekeeper Validation:** Host verifies the function is in the `Allowed_Skills` registry. If valid, executes the real Python function.
 
-6. **Return:** Result serialized and sent back to Guest. Proxy returns it to LLM code.
+6. **Return:** Result serialized as JSON and sent back to Guest. Proxy returns it to LLM code.
+
+### Bridge Protocol Details
+
+**Message Format:**
+```json
+{"type": "<message_type>", "id": "<uuid>", "data": {...}}
+```
+
+**Message Types:**
+| Direction | Type | Purpose |
+|-----------|------|---------|
+| Python → Deno | `execute` | Start code execution with `{code, proxy}` |
+| Deno → Python | `call` | Skill call request with `{path, args, kwargs}` |
+| Python → Deno | `result` | Skill call result with `{value}` |
+| Deno → Python | `complete` | Execution finished with `{output}` |
+| Deno → Python | `error` | Execution failed with `{error}` |
+
+**Constraints:**
+- Max payload size: Not currently enforced (TODO: add limit)
+- Timeout: 5 seconds hard-kill on execution
+- No multi-line JSON (each message must be single line)
 
 ### Security Constraints
 
@@ -208,11 +283,13 @@ The sandbox must be defensive—assume anything can fail:
 **LLM generates this code:**
 ```python
 # Turn off all the lights in the house
-lights = device_manager.search_skills("light")
-for light in lights:
-    if "turn_off" in light["path"]:
-        device_name = light["device"]
-        getattr(device_manager, device_name).SmartHomeSkill.turn_off()
+skills = device_manager.search_skills("light")
+for skill in skills:
+    if "turn_off" in skill["path"]:
+        # Each skill has a list of devices that provide it
+        for device_name in skill["devices"]:
+            getattr(device_manager, device_name).SmartHomeSkill.turn_off()
+            print(f"Turned off lights on {device_name}")
 ```
 
 **What happens:**
@@ -292,14 +369,15 @@ When the Hub is online, skills are shared across all devices via the Skill Regis
 ```python
 device_manager: DeviceManager  # Manages all connected devices
 
-device_manager.search_skills(query: str = "") -> List[RemoteSkillResult]
-# Search for skills across all devices (current device prioritized)
+device_manager.search_skills(query: str = "") -> List[dict]
+# Search for skills across all devices
+# Returns skills with their associated device lists
 
 device_manager.describe_function(path: str) -> str
 # Get function signature + full docstring
-# Path format: "DeviceName.ClassName.function_name"
+# Path format: "device_name.SkillName.method_name"
 
-device_manager.DeviceName.SkillClassName.function_name(...)
+device_manager.device_name.SkillName.method_name(...)
 # Call a skill on a specific device
 ```
 
@@ -307,16 +385,16 @@ device_manager.DeviceName.SkillClassName.function_name(...)
 ```python
 [
     {
-        "path": "TV.MediaControlSkill.set_volume",
-        "signature": "set_volume(volume: int) -> None",
-        "summary": "Sets the TV volume",
-        "device": "TV"
+        "path": "MusicControlSkill.set_volume",
+        "signature": "set_volume(change_by: int) -> None",
+        "summary": "Adjusts playback volume by relative amount",
+        "devices": ["living_room_pc", "bedroom_pc", "office_pc"]
     },
     {
-        "path": "Speaker.MediaControlSkill.set_volume",
+        "path": "MediaControlSkill.set_volume",
         "signature": "set_volume(volume: int) -> None", 
-        "summary": "Sets the speaker volume",
-        "device": "Speaker"
+        "summary": "Sets absolute volume level (0-100)",
+        "devices": ["tv", "speaker"]
     }
 ]
 ```
@@ -324,10 +402,16 @@ device_manager.DeviceName.SkillClassName.function_name(...)
 **Multi-Device Execution:**
 Each device is exposed as an attribute on `device_manager`:
 ```python
-device_manager.TV.MediaControlSkill.set_volume(50)
-device_manager.Speaker.MediaControlSkill.set_volume(75)
-device_manager.Bedroom_Light.SmartHomeSkill.turn_on()
+device_manager.living_room_pc.MusicControlSkill.set_volume(change_by=30)
+device_manager.bedroom_pc.MusicControlSkill.set_volume(change_by=20)
+device_manager.tv.MediaControlSkill.set_volume(volume=75)
 ```
+
+**Search Result Design:**
+- Skills are listed **once** with all providing devices
+- Reduces result verbosity when many devices share the same skill
+- LLM can target specific devices based on user request
+- Device names are normalized to valid Python identifiers (e.g., "living_room_pc")
 
 ### Remote Skill Call Flow
 
@@ -368,11 +452,12 @@ If connectivity changes mid-conversation, the LLM receives a system prompt:
 ```markdown
 <system>
 Automated Message: The device switched to online mode and now has access to 
-skills on other devices. The available tools have changed:
+skills on other devices. The available object has changed:
 
 device_manager: DeviceManager  # Manages all connected devices
-device_manager.search_skills(query: str = "")  # Search skills across devices
-device_manager.describe_function(path: str)  # Get function details
+device_manager.search_skills(query: str = "")  # Returns grouped skills with devices list and device_count
+device_manager.describe_function(path: str)  # Path: "device_name.SkillName.method"
+device_manager.device_name.SkillName.method(...)  # Call skill on specific device
 </system>
 ```
 
@@ -383,8 +468,9 @@ Automated Message: The device switched to offline mode. Only local skills
 are available:
 
 device: Device  # Local skills only
-device.search_skills(query: str = "")  # Search local skills
-device.describe_function(path: str)  # Get function details
+device.search_skills(query: str = "")  # Returns local skills
+device.describe_function(path: str)  # Path: "SkillName.method"
+device.SkillName.method(...)  # Call local skill
 </system>
 ```
 
@@ -478,13 +564,21 @@ Following TensorZero's session model:
 **JWT Token Contents:**
 ```json
 {
-    "user_id": "user_123",
-    "device_id": "living_room_speaker",
-    "device_name": "Living Room Speaker",
-    "permissions": ["skill_call", "skill_register"],
-    "exp": 1735689600
+    "sub": "device_abc123",
+    "type": "device",
+    "name": "Living Room Speaker",
+    "exp": 1735689600,
+    "iat": 1704067200
 }
 ```
+
+- `sub`: Subject identifier (device_id for device tokens, user_id for user tokens)
+- `type`: Token type ("device" or "user")
+- `name`: Human-readable name
+- `exp`: Expiration timestamp
+- `iat`: Issued-at timestamp
+
+Note: Permissions are not currently implemented as claims. Access control is based on `user_id` lookup from the device record.
 
 **Access Control:**
 - Spokes can only access skills registered by the same user account
