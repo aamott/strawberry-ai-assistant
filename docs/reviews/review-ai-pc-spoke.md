@@ -196,3 +196,146 @@ Updated `MainWindow._apply_settings_changes()` to:
 2. Refactor `_send_message_via_tensorzero` to use agent helpers (uses native tool calls vs code blocks)
 3. Extract proxy classes from `service.py`
 4. Decide whether terminal mode should use TensorZero fallback
+
+---
+
+## Planning Artifacts: Session Refactor
+
+### Sequence diagram: App startup -> bootstrap sessions -> sidebar population
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Qt as Qt Event Loop
+    participant MW as MainWindow
+    participant SC as SessionController
+    participant DB as LocalSessionDB
+    participant SB as ChatHistorySidebar
+
+    MW->>MW: __init__()
+    MW->>MW: _init_local_storage()
+    MW->>SC: SessionController(db_path)
+    SC->>DB: LocalSessionDB(db_path)
+
+    MW->>Qt: QTimer.singleShot(0, _bootstrap_sessions)
+    Qt->>MW: _bootstrap_sessions()
+    MW->>MW: _refresh_sessions()
+    MW->>SC: list_sessions_for_sidebar(hub_client, connected)
+    SC->>DB: list_sessions()
+    SC-->>MW: sessions_data
+    MW->>SB: set_sessions(sessions_data)
+
+    alt No sessions exist
+        MW->>SC: create_local_session()
+        SC->>DB: create_session()
+        SC->>SC: queue_create_session(session.id)
+        MW->>MW: _refresh_sessions()
+        MW->>SC: list_sessions_for_sidebar(...)
+        SC-->>MW: sessions_data
+        MW->>SB: set_sessions(sessions_data)
+    end
+```
+
+### Sequence diagram: Message submit -> ensure session -> persist -> enqueue sync
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as InputArea
+    participant MW as MainWindow
+    participant SC as SessionController
+    participant DB as LocalSessionDB
+    participant SYNC as SyncManager
+    participant LLM as LLM Client (Hub/TensorZero)
+
+    UI->>MW: _on_message_submitted(message)
+    MW->>MW: _handle_message_submitted_async(message)
+    MW->>MW: add_message(message, is_user=True)
+
+    alt No current session
+        MW->>SC: create_local_session()
+        SC->>DB: create_session()
+        SC->>SYNC: queue_create_session(session.id)
+        MW->>MW: _refresh_sessions()
+    end
+
+    MW->>SC: add_message_local(session_id, "user", message)
+    SC->>DB: add_message(...)
+    MW->>SC: queue_add_message(session_id, msg_id, "user", message)
+    SC->>SYNC: queue_add_message(...)
+
+    MW->>MW: _refresh_sessions()
+    MW->>LLM: _send_message_via_tensorzero() OR _send_message()
+```
+
+### Sequence diagram: Session select -> load messages (local-first, Hub fallback)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SB as ChatHistorySidebar
+    participant MW as MainWindow
+    participant SC as SessionController
+    participant DB as LocalSessionDB
+    participant HUB as HubClient
+
+    SB->>MW: _on_session_selected(session_id)
+    MW->>MW: clear chat + history
+    MW->>MW: _load_session_messages(session_id)
+    MW->>SC: load_session_messages(session_id, hub_client, connected)
+    SC->>DB: get_messages(session_id)
+
+    alt Local messages exist
+        SC-->>MW: [ChatMessage...]
+    else No local messages and connected
+        SC->>HUB: get_session_messages(session_id)
+        SC-->>MW: [ChatMessage...]
+    end
+
+    MW->>MW: render messages into ChatArea
+```
+
+### Sequence diagram: Session delete -> local queue + Hub best-effort
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SB as ChatHistorySidebar
+    participant MW as MainWindow
+    participant SC as SessionController
+    participant SYNC as SyncManager
+    participant HUB as HubClient
+
+    SB->>MW: _on_session_deleted(session_id)
+    MW->>MW: _delete_session(session_id)
+    MW->>SC: delete_session(session_id, hub_client, connected)
+    SC->>SYNC: queue_delete_session(session_id)
+
+    opt connected
+        SC->>HUB: delete_session(session_id)
+    end
+
+    MW->>MW: _refresh_sessions()
+```
+
+### Code call graph (high-level): sessions + sync
+
+```mermaid
+graph TD
+    MW[MainWindow]
+    SC[SessionController]
+    DB[LocalSessionDB]
+    SYNC[SyncManager]
+    HUB[HubClient]
+
+    MW -->|create_local_session| SC
+    MW -->|add_message_local| SC
+    MW -->|queue_add_message| SC
+    MW -->|list_sessions_for_sidebar| SC
+    MW -->|load_session_messages| SC
+    MW -->|delete_session| SC
+
+    SC --> DB
+    SC --> SYNC
+    SYNC -->|optional| HUB
+```
