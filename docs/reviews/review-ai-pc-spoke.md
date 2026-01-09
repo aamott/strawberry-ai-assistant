@@ -163,9 +163,36 @@ Updated `MainWindow._apply_settings_changes()` to:
 
 ## Simplification Opportunities Summary
 
+### Completed (2026-01-08)
+
+1. **Extracted `HubConnectionManager`** (`ui/hub_manager.py`)
+   - Encapsulates Hub connection lifecycle (init, health check, websocket, reconnect)
+   - Emits Qt signals for status changes and system messages
+   - Decouples connection logic from UI updates
+   - Reduced `main_window.py` by ~80 lines
+
+2. **Created agent loop helpers** (`ui/agent_helpers.py`)
+   - `AgentLoopContext` - tracks iteration state and tool calls
+   - `ToolCallInfo` - structured tool call data
+   - `build_messages_with_history()` - common message building
+   - `format_tool_output_message()` - formats tool output for LLM
+   - `get_final_display_content()` - determines final content to show
+   - Refactored `_send_message()` to use these helpers
+
+3. **Unified `ChatResponse` and `ToolCall` models** (`models.py`)
+   - Single `ChatResponse` dataclass supports both Hub and TensorZero
+   - Hub-only fields default to sensible values
+   - Both clients now import from shared `models.py`
+   - Removed duplicate definitions from `hub/client.py` and `llm/tensorzero_client.py`
+
+4. **Added URL validation in SettingsDialog**
+   - Validates URL format on field blur (scheme, host, port range)
+   - Auto-normalizes URLs by stripping `/api` or `/api/v1` suffix
+   - Shows inline error label for invalid URLs
+   - Prevents the "port must be 0-65535" error from invalid ports
+
 ### Open items (future work)
-1. Split `main_window.py` into smaller modules
-2. Extract agent loop logic to reduce duplication
-3. Unify `ChatResponse` types
-4. Extract proxy classes from `service.py`
-5. Decide whether terminal mode should use TensorZero fallback
+1. Split `main_window.py` further (session controller, chat controller)
+2. Refactor `_send_message_via_tensorzero` to use agent helpers (uses native tool calls vs code blocks)
+3. Extract proxy classes from `service.py`
+4. Decide whether terminal mode should use TensorZero fallback
