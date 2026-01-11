@@ -1,6 +1,6 @@
 # AI-PC-Spoke Code Review
 
-**Date**: 2026-01-08
+**Last Updated**: 2026-01-11
 
 ## Scope
 This review covers the ai-pc-spoke codebase, focusing on:
@@ -14,8 +14,30 @@ This review covers the ai-pc-spoke codebase, focusing on:
 - **Consider**: Good improvement but needs more work or has downstream impact
 - **Question**: Needs clarification
 - **OK**: Solid as-is
+- **Fixed**: Issue resolved
 
 ---
+
+## Codebase Metrics (2026-01-11)
+
+| Metric | Value |
+|--------|-------|
+| Source files | ~70 Python files |
+| Total source LOC | ~17,000 lines |
+| Test files | 23 files |
+| Test LOC | ~5,200 lines |
+| Tests passing | 319 |
+| Ruff warnings | 0 |
+| Test warnings | 0 |
+
+### Largest Files
+| File | Lines | Status |
+|------|-------|--------|
+| `ui/main_window.py` | 1,570 | Consider splitting |
+| `skills/service.py` | 1,311 | Consider splitting |
+| `hub/client.py` | 738 | OK |
+| `storage/session_db.py` | 724 | OK |
+| `ui/settings_dialog.py` | 623 | OK |
 
 ## Structure Overview
 ```
@@ -38,9 +60,36 @@ src/strawberry/
 
 ---
 
+## Recently Fixed (2026-01-11)
+
+### Test Suite Warnings - All Resolved
+**Status: Fixed**
+
+1. **`datetime.utcnow()` Deprecation (Python 3.12)**
+   - Replaced all `datetime.utcnow()` with timezone-aware `datetime.now(timezone.utc)`
+   - Files fixed: `storage/session_db.py`, `ui/widgets/chat_history.py`, tests
+   - Added helper functions `_utc_now()`, `_to_utc()`, `_parse_datetime()` for consistent handling
+
+2. **SQLite Datetime Adapter Deprecation (Python 3.12)**
+   - All datetime values now stored as ISO strings (not datetime objects)
+   - Avoids deprecated default datetime adapter
+
+3. **Pydantic V2 Deprecation Warning**
+   - Replaced `class Config:` with `model_config = ConfigDict(...)` in `config/settings.py`
+
+4. **websockets Legacy API Deprecation**
+   - Updated `hub/client.py` to use `websockets.asyncio.client.ClientConnection` instead of deprecated `WebSocketClientProtocol`
+
+5. **PySide6 Import Failures in Headless Tests**
+   - Made `ui/widgets/__init__.py` conditionally import Qt widgets
+   - Made `assistant_turn_widget.py` importable without PySide6
+   - `_parse_chunks()` function available for headless unit tests
+
+---
+
 ## Findings
 
-### 1) main_window.py is too large (1413 lines)
+### 1) main_window.py is too large (1,570 lines)
 **Status: Consider**
 
 The file handles:
@@ -76,7 +125,7 @@ Both methods implement nearly identical agent loops (5 iterations, code block pa
 
 **Recommendation**: Create a unified response type or clear inheritance. The TensorZero response is a superset.
 
-### 5) service.py is large (1162 lines)
+### 5) service.py is large (1,311 lines)
 **Status: Consider**
 
 Contains:
@@ -196,6 +245,37 @@ Updated `MainWindow._apply_settings_changes()` to:
 2. Refactor `_send_message_via_tensorzero` to use agent helpers (uses native tool calls vs code blocks)
 3. Extract proxy classes from `service.py`
 4. Decide whether terminal mode should use TensorZero fallback
+
+---
+
+## Outstanding TODOs in Codebase
+
+### Sandbox Bridge Robustness (4 TODOs)
+**Location**: `skills/sandbox/bridge.py`
+**Priority**: Medium
+
+- Add max message size enforcement (10MB limit defined but not enforced)
+- Add failure budget (restart sandbox after N decode errors)
+- Add readline timeout for hung processes
+- Enforce size limits on incoming/outgoing messages
+
+### Voice Controller (1 TODO)
+**Location**: `ui/voice_controller.py:384`
+**Priority**: Low
+
+- Get actual audio level from pipeline (currently simulated)
+
+### Voice Settings (1 TODO)
+**Location**: `ui/main_window.py:1364`
+**Priority**: Low
+
+- Voice-specific settings dialog (currently just displays info)
+
+### Gatekeeper Mode Switching (1 TODO)
+**Location**: `skills/sandbox/gatekeeper.py:49`
+**Priority**: Info only
+
+- `set_device_manager()` exists but is not used; mode switching handled differently via proxy classes at initialization
 
 ---
 
