@@ -4,9 +4,28 @@
 
 The primary workflow is to run Spoke tests using the `strawberry-test` runner.
 
+## Fresh environment setup (shared repo `.venv`)
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install uv
+uv pip install -e "ai-pc-spoke[all]"
+uv pip install -e ai-hub
+```
+
+Now the `strawberry-test` command is available anywhere while the venv is active.
+This does not require deleting any existing per-project virtual environments.
+
 ## Spoke Tests (recommended)
 
-Run from the `ai-pc-spoke` directory.
+Run from the `ai-pc-spoke` directory after activating the shared repo `.venv`:
+
+```bash
+source ../.venv/bin/activate
+```
 
 ### 1) Run tests (minimal console output)
 
