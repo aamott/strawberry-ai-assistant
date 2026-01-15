@@ -10,98 +10,124 @@ A voice assistant platform using a hub-and-spoke architecture.
 
 ## Data Flow
 
+The system operates in two distinct modes based on Hub connectivity. **Tool execution location changes based on mode.**
+
+### Online Mode (Hub Executes Tools)
+
 ```
-User Prompt 
-    → Spoke TensorZero 
-    → Hub TensorZero 
-    → LLM (e.g., OpenAI, Claude, etc.) 
-    → Hub TensorZero 
-    → Spoke TensorZero 
-    → Spoke handles response (text output + skill calls)
+┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+│  User   │    │  Spoke  │    │   Hub   │    │   LLM   │
+└────┬────┘    └────┬────┘    └────┬────┘    └────┬────┘
+     │              │              │              │
+     │ 1. Message   │              │              │
+     │─────────────>│              │              │
+     │              │ 2. Forward   │              │
+     │              │  (no tools)  │              │
+     │              │─────────────>│              │
+     │              │              │ 3. Inference │
+     │              │              │─────────────>│
+     │              │              │<─────────────│
+     │              │              │ 4. Tool call │
+     │              │              │              │
+     │              │              │── Hub runs ──│
+     │              │              │   agent loop │
+     │              │              │   with tools │
+     │              │              │              │
+     │              │              │ 5. python_exec
+     │              │              │── devices.X.Y.method()
+     │              │              │              │
+     │              │  WebSocket   │              │
+     │              │<─────────────│              │
+     │              │ 6. Execute   │              │
+     │              │    skill     │              │
+     │              │─────────────>│              │
+     │              │              │              │
+     │              │              │ 7. Continue  │
+     │              │              │─────────────>│
+     │              │              │<─────────────│
+     │              │              │ 8. Final     │
+     │              │<─────────────│              │
+     │ 9. Response  │              │              │
+     │<─────────────│              │              │
 ```
+
+**Key Points:**
+- Spoke sends message to Hub with `enable_tools=false` (Spoke won't execute tools)
+- Hub runs the full agent loop with tools enabled
+- Hub uses `devices` object to access skills across all connected spokes
+- Skill calls route through WebSocket to target devices
+- Spoke only receives the final response (no intermediate tool calls)
+
+### Offline Mode (Spoke Executes Tools)
+
+```
+┌─────────┐    ┌─────────┐    ┌─────────────────┐
+│  User   │    │  Spoke  │    │ Local LLM/Cloud │
+└────┬────┘    └────┬────┘    └────────┬────────┘
+     │              │                  │
+     │ 1. Message   │                  │
+     │─────────────>│                  │
+     │              │ 2. Inference     │
+     │              │─────────────────>│
+     │              │<─────────────────│
+     │              │ 3. Tool call     │
+     │              │                  │
+     │              │── Spoke runs ────│
+     │              │   agent loop     │
+     │              │   with tools     │
+     │              │                  │
+     │              │ 4. python_exec   │
+     │              │── device.X.method()
+     │              │                  │
+     │              │ 5. Continue      │
+     │              │─────────────────>│
+     │              │<─────────────────│
+     │              │ 6. Final         │
+     │ 7. Response  │                  │
+     │<─────────────│                  │
+```
+
+**Key Points:**
+- Spoke runs the full agent loop locally
+- Uses `device` object for local-only skill access
+- Falls back to local Ollama or direct cloud API if Hub unreachable
 
 ### TensorZero's Role
 
-TensorZero uses the **[Embedded Gateway](https://www.tensorzero.com/docs/gateway/clients#embedded-gateway)** on both Hub and Spoke—no separate gateway service required.
+TensorZero uses the **[Embedded Gateway](https://www.tensorzero.com/docs/gateway/clients#embedded-gateway)** on both Hub and Spoke.
 
-- **On the Hub**: Acts as a unifier for multiple LLMs. Handles fallback logic, authentication, and routing. Configured once; all Spokes benefit.
-- **On the Spoke**: Routes requests to the Hub as if it were an LLM server. Can be configured to use a different LLM server if needed.
-
-**Spoke TensorZero Example:**
-```python
-from tensorzero import AsyncTensorZeroGateway
-
-async with await AsyncTensorZeroGateway.build_embedded(
-    config_file="config/tensorzero.toml",
-) as gateway:
-    response = await gateway.inference(
-        function_name="chat",
-        input={
-            "messages": [{"role": "user", "content": user_input}]
-        },
-    )
-```
+- **On the Hub**: Runs agent loop with tools, routes to LLM providers, handles fallback
+- **On the Spoke**: Routes to Hub when online, runs local agent loop when offline
 
 **Configuration Files:**
-- `tensorzero.toml` — TensorZero function definitions, model routing, variants
+- `tensorzero.toml` — Function definitions, model routing, tool definitions (both Hub and Spoke)
 - `config.yaml` — Spoke-specific settings (device name, Hub URL, skills path)
 - `.env` — API keys and secrets
 
-### Response Handling (Agent Loop)
+### Agent Loop
 
-The Spoke runs an **agent loop** that allows the LLM to make multiple tool calls and see results:
+The agent loop runs on **Hub (online)** or **Spoke (offline)**:
 
 ```
-User prompt → LLM → Execute tool calls → Send results → LLM → ... → Final response
+User message → LLM → Tool calls? → Execute → Results → LLM → ... → Final response
 ```
 
-**Flow:**
-1. User sends message
-2. LLM responds with `ToolCall` objects (TensorZero parses these natively)
-3. Spoke executes tool calls, captures output
-4. Output sent back to LLM as `tool_result` messages
-5. LLM continues (more tool calls or final text response)
-6. Loop ends when LLM responds without tool calls (max iterations configurable)
-
-**TensorZero Tool Calling:**
-
-Tools are defined in `tensorzero.toml` with JSON Schema parameters. TensorZero handles parsing tool calls from LLM responses - no custom XML parsing needed.
-
-```python
-# Example: Processing tool calls from TensorZero response
-from tensorzero import ToolCall
-
-tool_calls = [block for block in response.content if isinstance(block, ToolCall)]
-for tool_call in tool_calls:
-    result = execute_tool(tool_call.name, tool_call.arguments)
-    # Return result as tool_result message
-```
-
-**Available Tools (defined in tensorzero.toml):**
-- `search_skills(query: str = "")` - Find skills by keyword, returns grouped skills with sample devices and device count (use `device_limit` to request a larger sample)
+**Available Tools (defined in tensorzero.toml on both Hub and Spoke):**
+- `search_skills(query: str = "")` - Find skills by keyword
 - `describe_function(path: str)` - Get full function signature with docstring
 - `python_exec(code: str)` - Execute Python code in sandbox
 
-**Dual Availability:**
-`search_skills` and `describe_function` are available both as:
-1. Direct TensorZero tool calls
-2. Methods on `device`/`device_manager` inside `python_exec` code
-
-This allows flexibility if the LLM prefers one approach over the other.
-
-**Display-only code blocks** (` ```python `) show examples to users without execution.
-
-**Error Handling:**
-- Tool errors return as `tool_result` with error details
-- Exceptions inside `python_exec` return as Python traceback output
-- Device offline errors include device name and suggestion to try alternatives
+**Skill Access Objects:**
+- **Online (Hub)**: `devices` - Access skills across all connected devices
+  - `devices.living_room_pc.MusicSkill.play()`
+- **Offline (Spoke)**: `device` - Access local skills only
+  - `device.MusicSkill.play()`
 
 **Why This Design:**
-- TensorZero native parsing (no custom XML)
-- Prevents accidental execution of tutorial/example code
-- Supports multi-turn workflows (search → inspect → execute)
-- Clear security boundary: all code runs in sandbox, only skill calls bridge to real resources
-- Allows LLM to discover skills dynamically rather than needing them all in the system prompt
+- TensorZero native tool parsing (no custom XML)
+- Single agent loop location prevents duplicate tool execution
+- Hub can participate in skill network (access all devices)
+- Clear security boundary: all code runs in sandbox
 
 ## The Sandbox
 
@@ -446,39 +472,56 @@ Spoke A calls skill on itself (remote mode):
 
 ### Mode Switching
 
-If connectivity changes mid-conversation, the LLM receives a system prompt:
+If connectivity changes mid-conversation, the LLM receives a system prompt explaining the new available objects.
 
-**Switching to Remote Mode:**
+**Switching to Online Mode:**
 ```markdown
 <system>
-Automated Message: The device switched to online mode and now has access to 
-skills on other devices. The available object has changed:
-
-device_manager: DeviceManager  # Manages all connected devices
-device_manager.search_skills(query: str = "")  # Returns grouped skills with devices list and device_count
-device_manager.describe_function(path: str)  # Path: "device_name.SkillName.method"
-device_manager.device_name.SkillName.method(...)  # Call skill on specific device
+Automated Message: The device switched to online mode. Skills execute on the Hub.
+Available: devices.device_name.SkillName.method(...)
 </system>
 ```
 
-**Switching to Local Mode:**
+**Switching to Offline Mode:**
 ```markdown
 <system>
-Automated Message: The device switched to offline mode. Only local skills 
-are available:
-
-device: Device  # Local skills only
-device.search_skills(query: str = "")  # Returns local skills
-device.describe_function(path: str)  # Path: "SkillName.method"
-device.SkillName.method(...)  # Call local skill
+Automated Message: The device switched to offline mode. Only local skills available.
+Available: device.SkillName.method(...)
 </system>
 ```
 
-These prompts are stored in the skill runner class:
-- `SkillRunner.remote_mode_prompt`
-- `SkillRunner.local_mode_prompt`
-- `SkillRunner.switched_to_remote_prompt`
-- `SkillRunner.switched_to_local_prompt`
+**Edge Cases for Mode Prompt Deduplication:**
+
+Sessions can be started offline, synced to Hub, and resumed from Hub web UI or another device. To avoid duplicate mode prompts:
+
+1. **Session tracks `last_mode_prompt`** - stores which mode prompt was last sent ("online", "offline", or null)
+2. **Hub checks before sending** - if session already has the matching mode prompt, skip it
+3. **Spoke checks before sending** - same logic for local-to-online transitions
+
+```
+Scenario: Offline conversation synced to Hub, resumed from Hub web UI
+─────────────────────────────────────────────────────────────────────
+1. User starts conversation on Spoke (offline)
+2. Spoke sends offline mode prompt (session.last_mode_prompt = "offline")
+3. Spoke reconnects to Hub, syncs conversation
+4. User opens conversation in Hub web UI
+5. Hub sees session.last_mode_prompt = "offline"
+6. Hub sends online mode prompt (session.last_mode_prompt = "online")
+7. Conversation continues with correct context
+
+Scenario: Online conversation, Spoke goes offline mid-chat
+──────────────────────────────────────────────────────────
+1. User chatting via Spoke (online, Hub executing tools)
+2. Hub disconnects
+3. Spoke detects offline (after N consecutive fallbacks)
+4. Spoke checks session.last_mode_prompt (was "online" or null)
+5. Spoke sends offline mode prompt on next message
+6. Spoke now executes tools locally
+```
+
+**Storage:**
+- `Session.last_mode_prompt: Optional[str]` - "online" | "offline" | null
+- Updated whenever a mode prompt is prepended to a message
 
 ### Async/Long-Running Skills
 

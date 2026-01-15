@@ -1,20 +1,21 @@
 # Hub
-- Acts as a central hub for all devices/spokes to connect to. 
-- Manages user chats and routing to LLMs and fallback LLMs using the TensorZero Python library's fallback system (https://www.tensorzero.com/docs/gateway/guides/retries-fallbacks#variant-fallbacks)
-- Manages LLM sessions using TensorZero's embedded gateway (https://www.tensorzero.com/docs/gateway/clients#embedded-gateway)
-- Let's users register their devices/spokes and authenticate them
-
+- Central coordinator for all devices/spokes
+- Manages LLM orchestration via TensorZero embedded gateway with fallback support
+- **Executes tool calls when online** - runs the agent loop with `devices` object for cross-device skill access
+- Routes skill calls to target devices via WebSocket
+- Manages sessions, user accounts, and device authentication
 
 # Spoke
-- Acts as a client for the Hub, physically installed on a Windows or Linux PC.
-
-- Houses "skills" or "tools" (python scripts) that can be executed by the Hub
+- Client installed on Windows/Linux PC
+- Houses skills (Python scripts) that can be executed locally or remotely by the hub (via websockets)
     - When connected to the Hub, it can register its skills to the Hub
     - The Hub can then execute these skills on the Spoke
     - The skills registered to the Hub are available to all devices/spokes owned by the user
     - If the Spoke is not connected to the Hub, it can still execute its own skills
-- Manages all user chats through the TensorZero Python library using an embedded gateway (completely separate from the Hub's TensorZero gateway and library)
-- Manages LLM sessions using TensorZero's embedded gateway (https://www.tensorzero.com/docs/gateway/clients#embedded-gateway)
+- Registers skills to Hub and maintains heartbeat
+- **When online**: Routes LLM requests to Hub; Hub executes tools; Spoke only receives final responses
+- **When offline**: Runs full agent loop locally with TensorZero fallback to local Ollama
+- Has its own TensorZero for offline operation (separate from Hub's) and runs all hub chats through its own TensorZero.
 
 ## Auth & Tokens
 - Spoke authenticates to the Hub using a device JWT token provided by the Hub UI.
@@ -43,87 +44,45 @@ Use Deno as the host and Pyodide as the guest to create a sandbox environment fo
 
 ### Tool Call System
 
-TensorZero provides native tool calling support (https://www.tensorzero.com/docs/gateway/guides/tool-use). Tools are defined in `tensorzero.toml` with JSON Schema parameters. The LLM returns structured `ToolCall` objects that the Spoke executes.
+TensorZero provides native tool calling support. Tools are defined in `tensorzero.toml` on both Hub and Spoke.
 
-**Execution Model:**
-- **Structured tool calls** (TensorZero native) for discrete operations: searching skills, describing functions
-- **Code execution tool** (`python_exec`) for complex logic: loops, conditionals, multi-step operations
-- **Display-only code blocks** (` ```python `) for showing examples to the user without execution
+**Available Tools:**
+- `search_skills(query: str = "")` - Returns grouped skills with signatures, summaries, sample devices
+- `describe_function(path: str)` - Returns full function signature with docstring
+- `python_exec(code: str)` - Executes Python code in sandbox with access to `device` (offline) or `devices` (online)
 
-This prevents accidental execution of tutorial/example code while enabling multi-turn workflows.
-
-**Available Tools (defined in tensorzero.toml):**
-- `search_skills(query: str = "")` - Returns grouped skills with signatures, summaries, sample devices, and device count
-- `describe_function(path: str)` - Returns full function signature with complete docstring
-- `python_exec(code: str)` - Executes Python code in sandbox with access to `device` or `device_manager`
-
-**Dual Availability:** `search_skills` and `describe_function` are available both as:
-1. Direct tool calls (TensorZero native)
-2. Methods on `device`/`device_manager` inside `python_exec` code
-
-This allows flexibility if the LLM prefers one approach over the other.
+**Execution Location:**
+- **Online mode**: Hub runs the agent loop and executes tools via `devices` object
+- **Offline mode**: Spoke runs the agent loop locally and executes tools via `device` object
+- Tools are disabled on the non-executing side to prevent duplicate execution
 
 **Agent Loop Flow:**
 1. User sends message
 2. LLM responds with `ToolCall` objects (parsed by TensorZero)
-3. Spoke executes tools, returns results as `tool_result` messages
+3. Executor (Hub or Spoke) runs tools, returns results as `tool_result` messages
 4. LLM continues (more tool calls or final text response)
 5. Loop ends when LLM responds without tool calls (max iterations configurable)
 
-**Offline Mode Example:**
+**Offline Mode Example (Spoke executes):**
 ```
 User: Turn on all lights
-
-LLM calls tool: python_exec(code="...")
-  Code executed:
-    results = device.search_skills("lights")
-    lights = device.HomeAssistantSkill.get_lights()
-    for light in lights:
-        device.HomeAssistantSkill.turn_on_light(light['entity_id'])
-        print(f"Turned on {light['friendly_name']}")
-
-  Output: "Turned on Kitchen Light\nTurned on Living Room Light\n..."
-
-LLM: All lights have been turned on.
+→ Spoke agent loop executes python_exec locally
+→ Code: device.HomeAssistantSkill.turn_on_light(...)
+→ Output: "Turned on Kitchen Light..."
 ```
 
-**Online Mode Example (Multi-Device):**
+**Online Mode Example (Hub executes):**
 ```
 User: Turn up volume on the living room PC
-
-LLM calls tool: search_skills(query="volume")
-  Returns: [
-    {
-      "path": "MusicControlSkill.set_volume",
-      "signature": "...",
-      "summary": "...",
-      "devices": ["living_room_pc", "bedroom_pc", "tv", "office", "kitchen", "..."],
-      "device_count": 100
-    }
-  ]
-
-# If the device list is truncated but the user/device name is not shown,
-# request a larger sample:
-LLM calls tool: search_skills(query="volume", device_limit=50)
-
-LLM calls tool: python_exec(code="device_manager.living_room_pc.MusicControlSkill.set_volume(change_by=30)")
-  Output: "Volume increased by 30"
-
-LLM: I've turned up the volume on the living room PC.
+→ Hub agent loop executes search_skills, then python_exec
+→ Code: devices.living_room_pc.MusicControlSkill.set_volume(change_by=30)
+→ Hub routes call to living_room_pc via WebSocket
+→ Output: "Volume increased by 30"
 ```
 
 **Error Handling:**
 - Tool errors return as `tool_result` with error details
-- Exceptions inside `python_exec` return as Python traceback output
-- Device offline errors include the device name and suggestion to try alternatives
+- Device offline errors include device name and suggestion to try alternatives
 
 **Sandbox-to-Skill Bridge:**
-All LLM code runs in the Pyodide (Wasm) sandbox. When the LLM calls `device.SkillName.method()` or `device_manager.device_name.SkillName.method()`:
-1. **Proxy intercepts** the call inside the sandbox
-2. **Serializes** function name + arguments to JSON
-3. **Validates** against allow-list (only registered skills permitted)
-4. **Routes** to target device via Hub (online) or local skill runner (offline)
-5. **Executes** real Python skill code outside sandbox with full system access
-6. **Returns** result back through proxy as if it were local
-
-The LLM never directly accesses system resources—all mediated through validated skill calls.
+LLM code runs in Pyodide (Wasm) sandbox → Proxy intercepts calls → Validates against allow-list → Routes to target device (via Hub when online, local when offline) → Executes real Python → Returns result.
