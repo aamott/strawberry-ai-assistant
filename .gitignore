@@ -10,3 +10,4 @@ venv/
 # python
 __pycache__/
 *.pyc
+ai-hub/.env.test
