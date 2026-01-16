@@ -14,9 +14,7 @@ Detailed findings are available in the following documents:
 ## Actionable Task List
 
 ### Priority: High (Critical Stability & Security)
-- [ ] [Priority: High] [Difficulty: Medium] **Secure Skill Execution**: The `SkillService` falls back to `exec()` if the sandbox is unavailable. This is a critical security risk.
-    - *Action*: Implement a strict configuration flag to enable/disable this fallback.
-    - *Action*: Audit the `safe_builtins` list to ensuring no escape vectors exist.
+
 - [ ] [Priority: High] [Difficulty: Easy] **Fix macOS Media Control**: `MediaControlSkill` assumes Spotify on macOS.
     - *Action*: Add configuration to select the media player (Spotify vs Apple Music).
 - [ ] [Priority: High] [Difficulty: Medium] **Refactor HubClient Error Handling**: Ensure network timeouts and connection errors are gracefully handled in the UI (prevent freezing).
