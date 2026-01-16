@@ -15,19 +15,19 @@ Detailed findings are available in the following documents:
 
 ### Priority: High (Critical Stability & Security)
 
-- [ ] [Priority: High] [Difficulty: Easy] **Fix macOS Media Control**: `MediaControlSkill` assumes Spotify on macOS.
+- [x] [Priority: High] [Difficulty: Easy] **Fix macOS Media Control**: `MediaControlSkill` assumes Spotify on macOS.
     - *Action*: Add configuration to select the media player (Spotify vs Apple Music).
-- [ ] [Priority: High] [Difficulty: Medium] **Refactor HubClient Error Handling**: Ensure network timeouts and connection errors are gracefully handled in the UI (prevent freezing).
+- [x] [Priority: High] [Difficulty: Medium] **Refactor HubClient Error Handling**: Ensure network timeouts and connection errors are gracefully handled in the UI (prevent freezing).
 
 ### Priority: Medium (Feature Completeness)
-- [ ] [Priority: Medium] [Difficulty: Hard] **Volume Control Implementation**: `MediaControlSkill.get_volume` is simulated. Implement real volume control for Linux (PulseAudio/PipeWire) and Windows (CoreAudio APIs).
-- [ ] [Priority: Medium] [Difficulty: Medium] **Dependency Management**: `playerctl` is required for Linux media control but not checked.
+- [x] [Priority: Medium] [Difficulty: Hard] **Volume Control Implementation**: `MediaControlSkill.get_volume` is simulated. Implement real volume control for Linux (PulseAudio/PipeWire) and Windows (CoreAudio APIs).
+- [x] [Priority: Medium] [Difficulty: Medium] **Dependency Management**: `playerctl` is required for Linux media control but not checked.
     - *Action*: Add a startup check in `TerminalApp` / `StrawberryApp` to warn if external dependencies are missing.
-- [ ] [Priority: Medium] [Difficulty: Medium] **UI Async Integration**: Verify `qasync` integration in `StrawberryApp` covers all long-running tasks to prevent UI blocking.
+- [x] [Priority: Medium] [Difficulty: Medium] **UI Async Integration**: Verify `qasync` integration in `StrawberryApp` covers all long-running tasks to prevent UI blocking.
 
 ### Priority: Low (Polish & Documentation)
 - [ ] [Priority: Low] [Difficulty: Easy] **Docstring Completeness**: Add docstrings to `GenericSkill` methods/bases if they are missing, to help the LLM.
-- [ ] [Priority: Low] [Difficulty: Easy] **Logging**: Increase logging granularity in `ConversationPipeline` to debug VAD/Wake word false positives.
+- [x] [Priority: Low] [Difficulty: Easy] **Logging**: Increase logging granularity in `ConversationPipeline` to debug VAD/Wake word false positives.
 
 ## Completed Review Steps
 - [x] Initial Exploration & Architecture Review
