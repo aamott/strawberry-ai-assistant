@@ -37,6 +37,7 @@ Use Deno as the host and Pyodide as the guest to create a sandbox environment fo
 - Skills are each contained in a class that inherits from a base class. They are stored in files like `skills/WeatherSkill/__init__.py` or `skills/WeatherSkill/weather_skill.py`. 
 - The base class is accessible so users can import it and inherit from it easily. A readme is stored in the `skills` directory to help users understand how to create skills.
 - When the skill is loaded, only the public (non-underscored) methods *in the inherited class* are exposed to the LLM.
+- Skills can either be a single file, self-contained, or they can be their own git repo a directory with an __init__.py file and, if needed, a config.yaml, README.md, .env, tests, and requirements.txt or pyproject.toml. See [skills-store.md](../docs/plans/skills-store.md) for more information.
 
 ### Sandbox
 - **When Connected to the Hub:** The sandbox presents the LLM with a `device_manager` object that provides access to skills across all connected devices (spokes). Search returns skills with their associated device lists. Skills are called via `device_manager.device_name.SkillName.method()`. The Hub routes calls to the target device, executes the real (non-sandboxed) skill code, and returns results as if executed locally.
@@ -85,4 +86,6 @@ User: Turn up volume on the living room PC
 - Device offline errors include device name and suggestion to try alternatives
 
 **Sandbox-to-Skill Bridge:**
+*On both Hub and Spoke:*
 LLM code runs in Pyodide (Wasm) sandbox → Proxy intercepts calls → Validates against allow-list → Routes to target device (via Hub when online, local when offline) → Executes real Python → Returns result.
+TODO: Upgrade with a faster option and safer fallback. See [docs/plans/sandbox-upgrade.md](docs/plans/sandbox-upgrade.md) for more information. This is partially complete in the hub. 
