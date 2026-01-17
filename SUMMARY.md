@@ -88,4 +88,7 @@ User: Turn up volume on the living room PC
 **Sandbox-to-Skill Bridge:**
 *On both Hub and Spoke:*
 LLM code runs in Pyodide (Wasm) sandbox → Proxy intercepts calls → Validates against allow-list → Routes to target device (via Hub when online, local when offline) → Executes real Python → Returns result.
+Fallbacks:
+- Hub: asteval + sync bridge (async)
+- Spoke: RestrictedPython (synchronous)
 TODO: Upgrade with a faster option and safer fallback. See [docs/plans/sandbox-upgrade.md](docs/plans/sandbox-upgrade.md) for more information. This is partially complete in the hub. 

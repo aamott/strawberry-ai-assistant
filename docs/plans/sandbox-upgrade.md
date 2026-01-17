@@ -110,7 +110,8 @@ sandbox.run_script(llm_generated_code)
 
 
 ## 5. Fallback
-Fall back to asteval + sync bridge (currently implemented in the hub)
+Async: Fall back to asteval + sync bridge (currently implemented in the hub)
+Sync: Fall back to RestrictedPython (pc-spoke)
 
 ## 6. Considerations
 - User install: How do we compile everything into one shippable binary? 
