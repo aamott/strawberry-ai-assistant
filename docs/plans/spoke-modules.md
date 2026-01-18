@@ -165,9 +165,9 @@ UIs should render the session from events, and can rehydrate from `session.messa
 4. ✅ Create settings schema, module discovery, and SchemaSettingsWidget.
 5. ✅ Create `voice/` module with pure-Python VoiceController and state machine.
 6. ✅ Make all voice backends modular (STT, TTS, VAD, Wake) with discovery.
-7. ⬜ Add voice methods to SpokeCore (start_voice, stop_voice).
-8. ⬜ Refactor Qt UI to use `SpokeCore` only.
-9. ⬜ Add integration tests for voice + Qt.
+7. ✅ Add voice methods to SpokeCore (start_voice, stop_voice).
+8. ✅ Create QtVoiceAdapter for Qt UI (thin wrapper with signals).
+9. ✅ Update Qt main_window.py to use QtVoiceAdapter.
 
 ## Resolved questions
 
