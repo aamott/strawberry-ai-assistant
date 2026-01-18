@@ -162,12 +162,12 @@ UIs should render the session from events, and can rehydrate from `session.messa
 1. ✅ Create `core/` module with `SpokeCore`, `events`, `session`.
 2. ✅ Wrap existing agent loop + skills loader inside `SpokeCore`.
 3. ✅ Create CLI UI using `SpokeCore`.
-4. ⬜ Create `voice/` controller wrapper that emits status events.
-5. ⬜ Refactor Qt UI to use `SpokeCore` only.
-6. ⬜ Add unit tests for:
-   - voice lifecycle state transitions
-   - event ordering
-   - settings update flow
+4. ✅ Create settings schema, module discovery, and SchemaSettingsWidget.
+5. ✅ Create `voice/` module with pure-Python VoiceController and state machine.
+6. ✅ Make all voice backends modular (STT, TTS, VAD, Wake) with discovery.
+7. ⬜ Add voice methods to SpokeCore (start_voice, stop_voice).
+8. ⬜ Refactor Qt UI to use `SpokeCore` only.
+9. ⬜ Add integration tests for voice + Qt.
 
 ## Resolved questions
 
