@@ -92,3 +92,20 @@ Fallbacks:
 - Hub: asteval + sync bridge (async)
 - Spoke: RestrictedPython (synchronous)
 TODO: Upgrade with a faster option and safer fallback. See [docs/plans/sandbox-upgrade.md](docs/plans/sandbox-upgrade.md) for more information. This is partially complete in the hub. 
+
+
+## Modular Code
+The top level code components are:
+1. Spoke Core
+  - Skills
+  - Skill execution
+  - LLM
+2. Settings
+  - Configuration management (handles schemas for every component)
+3. UI's ([CLI](ai-pc-spoke/src/strawberry/ui/cli), [Qt](ai-pc-spoke/src/strawberry/ui/qt))
+  - Uses Spoke Core
+  - Can enable Voice UI, see its status, trigger STT (skip wakeword), and receive TTS to display in the UI like a user message.
+  - A UI can make a settings interface that uses the Settings object to access and modify settings. The QT UI does this and autopopulates settings, like wake word, STT, TTS, etc.
+4. Voice UI (calls Spoke Core)
+  - Uses Spoke Core
+  - Contains voice components (wakeword, STT, VAD, TTS)
