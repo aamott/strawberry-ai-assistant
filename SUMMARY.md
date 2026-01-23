@@ -104,8 +104,8 @@ The top level code components are:
   - Configuration management (handles schemas for every component)
 3. UI's ([CLI](ai-pc-spoke/src/strawberry/ui/cli), [Qt](ai-pc-spoke/src/strawberry/ui/qt))
   - Uses Spoke Core
-  - Can enable Voice UI, see its status, trigger STT (skip wakeword), and receive TTS to display in the UI like a user message.
+  - Can enable VoiceInterface, see its status, trigger STT (skip wakeword), and receive TTS to display in the UI like a user message.
   - A UI can make a settings interface that uses the Settings object to access and modify settings. The QT UI does this and autopopulates settings, like wake word, STT, TTS, etc.
-4. Voice UI (calls Spoke Core)
-  - Uses Spoke Core
-  - Contains voice components (wakeword, STT, VAD, TTS)
+4. VoiceInterface (voice-only example UI)
+  - Orchestrates VoiceCore + SpokeCore for a voice-only experience
+  - Uses VoiceCore components (wakeword, STT, VAD, TTS)

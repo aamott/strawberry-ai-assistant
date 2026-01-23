@@ -4,85 +4,46 @@ description: CLI UI design for the spoke (nanocode adaptation)
 
 # CLI UI Design (nanocode adaptation)
 
-**Status**: ✅ Implemented in `ai-pc-spoke/src/strawberry/ui/cli/`
+**Status**: ✅ Implemented in `ai-pc-spoke/src/strawberry/ui/cli/` (CLI V1)
+
+Follow nanocode's design and implementation, but use `SpokeCore` instead of nanocode's API calls. (See `nanocode/nanocode.py`)
 
 ## Scope
 - Replace nanocode's LLM and tool plumbing with `SpokeCore`.
 - Preserve the **streaming chat UX** and **tool-call visibility**.
-- **Deferred**: Shift+Tab expand/collapse, `/voice` toggle (not needed for test UI).
+- **Deferred**: Shift+Tab expand/collapse, `/voice` toggle.
+- Send all logs made by SpokeCore (including those made by its tensorzero backend) to a log file instead of to the console. 
 
 ---
 
-## Layout
+## Slash Commands
 
-```
-┌─────────────────────────────────────────────────────┐
-│ strawberry-cli | offline | gemma:7b | ~/projects   │  ← header
-├─────────────────────────────────────────────────────┤
-│ > What's the weather?                               │  ← user
-│ * Searching skills...                               │  ← assistant
-│ ▸ search_skills("weather")  [3 results]             │  ← collapsed
-│ * Running python_exec                               │
-│ ▾ python_exec(code="...")                           │  ← expanded
-│   │ Fetching weather for Salt Lake City...          │
-│   │ Temperature: 72°F                               │
-│   └─ returned: {"temp": 72, "condition": "sunny"}   │
-│ * It's 72°F and sunny in Salt Lake City.            │  ← final
-├─────────────────────────────────────────────────────┤
-│ Shift+Tab: expand | /voice | /help      ● Waiting  │  ← status bar
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## Keybindings
-
-| Key | Action |
-|-----|--------|
-| **Shift+Tab** | Toggle expand/collapse on the *focused* tool call |
-| `/voice` | Start/stop voice pipeline |
-| `/clear` | Clear conversation |
+| Command | Action |
+|---------|--------|
 | `/help` | Show help |
 | `/quit` or `/q` | Quit |
+| `/clear` | Clear conversation |
+| `/last` | Show the full output of the most recent tool call |
 
 ---
 
 ## Tool Call Rendering
 
-### Collapsed (default)
+### Summary-only (default)
 ```
-▸ tool_name(arg_preview...)  [N lines]
+* tool_name(arg_preview...) → <result_preview>
 ```
-- Shows first arg value truncated to 40 chars.
-- `[N lines]` shows hidden output line count.
-
-### Expanded
-```
-▾ tool_name(arg_preview...)
-  │ output line 1
-  │ output line 2
-  └─ returned: <result_preview>
-```
-
-### Focus & Navigation
-- **Arrow keys** move focus between tool calls.
-- **Shift+Tab** toggles expand on focused call.
-- Focus is indicated by **bold** tool name.
+- Shows a single-line summary with arg preview (max 40 chars) and result preview.
+- Use `/last` to show the full output for the most recent tool call.
 
 ---
 
-## Voice Status Bar
+## Voice UI
 
-Right side of the bottom bar shows:
-
-| State | Display |
-|-------|---------|
-| Off | `○ Off` (gray) |
-| Waiting | `● Waiting` (blue) |
-| Listening | `● Listening` (green) |
-| Processing | `● Processing` (orange) |
-
-Controlled via `/voice` command.
+- /voice to start voice mode. 
+- `>` is blue while voice mode is inactive. Green when active.
+- When a wakeword is detected and the user's prompt is recorded, the prompt is sent as a user message.
+- The next response is read out loud, top to bottom (filtering tool calls). 
 
 ---
 

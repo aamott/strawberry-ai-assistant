@@ -2,185 +2,97 @@
 description: Spoke core/backend and UI separation plan
 ---
 
-# Spoke core/backend + UI separation plan
+# Spoke Core + UI Separation Plan
 
-**Status**: CLI UI implemented, core/ module created (minimal version).
+**Status**: Core and CLI implemented. Voice UI is a separate, independent module.
 
 ## Goals
-- Provide a **single backend interface** that all UIs can use (CLI, PyQt6, Voice).
-- Allow each UI to run standalone, while enabling **UI-to-UI orchestration** (CLI/Qt can start/stop Voice).
+- Provide a **single backend interface** (`SpokeCore`) for chat/skills/agents.
+- Voice UI is an **independent module** that UIs can launch and control (see [voice_ui.md](voice_ui.md)).
 - Standardize **settings ownership** and **chat event streaming** with tool-call visibility.
-- Eliminate async/race conditions in voice/agent pipelines.
 
-## Implemented module layout
+## Module layout
 
 ```
 ai-pc-spoke/src/strawberry/
-├── core/                       # ✅ IMPLEMENTED (minimal)
-│   ├── __init__.py             # Exports SpokeCore, events, session
-│   ├── app.py                  # SpokeCore + agent loop
+├── core/                       # ✅ Chat, skills, agent loop
+│   ├── app.py                  # SpokeCore
 │   ├── events.py               # Typed event models
 │   └── session.py              # ChatSession state
-├── voice/                      # TODO: Refactor from ui/voice_controller.py
-│   └── ...
+├── voice/                      # ✅ Independent Voice UI module
+│   └── ...                     # (see voice_ui.md for design)
 ├── ui/
-│   ├── qt/                     # Existing PyQt6 UI (needs migration)
-│   └── cli/                    # ✅ IMPLEMENTED
-│       ├── __init__.py
-│       ├── main.py             # Entrypoint + async loop
-│       └── renderer.py         # ANSI terminal output
-├── skills/                     # Existing SkillService (reused by core)
-├── llm/                        # Existing TensorZeroClient (reused by core)
-└── config/                     # Existing config/.env loaders (reused)
+│   ├── qt/                     # PyQt6 UI
+│   └── cli/                    # ✅ CLI UI
+├── skills/                     # SkillService
+├── llm/                        # TensorZeroClient
+└── config/                     # Config loaders
 ```
 
-**Note**: Separate `agent.py`, `skills_registry.py`, `settings.py`, `lifecycle.py` files were NOT needed. The agent loop is simple enough to live in `app.py`, and existing modules (`SkillService`, `config/`) handle skills and settings.
+TODO: Include hub skill registration in the core. Currently only implemented in the QT UI.
 
-## 1) Backend/core interface (single class)
+## SpokeCore API
 
-### **SpokeCore** (primary entrypoint)
-- Responsible for:
-  - Loading settings + config (config.yaml + .env).
-  - Wiring skills + tool schemas.
-  - Exposing a **chat session** abstraction.
-  - Managing VoiceController lifecycle.
-  - Abstracting online/offline agent loop decisions.
-
-### Implemented API (v1)
 ```python
 class SpokeCore:
-    def __init__(self, settings_path: str | None = None) -> None: ...
-
     # lifecycle
     async def start(self) -> None: ...
     async def stop(self) -> None: ...
 
-    # session + messages
+    # chat sessions
     def new_session(self) -> ChatSession: ...
     def get_session(self, session_id: str) -> ChatSession | None: ...
     async def send_message(self, session_id: str, text: str) -> None: ...
 
-    # info helpers
+    # info
     def get_system_prompt(self) -> str: ...
-    def get_model_info(self) -> str: ...
     def is_online(self) -> bool: ...
 
     # events
     def subscribe(self, handler: Callable[[CoreEvent], None]) -> Subscription: ...
-    async def events(self) -> AsyncIterator[CoreEvent]: ...  # Alternative async-for API
-
-    # TODO: voice integration (not yet implemented)
-    # async def start_voice(self) -> None: ...
-    # async def stop_voice(self) -> None: ...
-    # def voice_status(self) -> VoiceStatus: ...
-
-    # TODO: settings management (using existing config/ module for now)
-    # def settings(self) -> SettingsSnapshot: ...
-    # async def update_settings(self, patch: SettingsPatch) -> SettingsSnapshot: ...
 ```
 
-**Changes from original plan**:
-- `send_user_message` → `send_message` (simpler name)
-- Added `get_session()`, `get_system_prompt()`, `get_model_info()`, `is_online()` helpers
-- Added `events()` async iterator as alternative to callback-based `subscribe()`
-- Voice and settings methods deferred (existing modules work for now)
+**SpokeCore does NOT manage voice.** UIs that want voice control launch/control the Voice UI module directly.
 
-### Why single class
-- UI code stays simple (one entrypoint).
-- Allows easy mock/stub for tests.
-- Avoids leaking internal services (skills, agent loop, wake word engines).
+## CoreEvent types
 
-## 2) Event model for UI updates + tool calls
-
-UIs listen to **CoreEvent**s instead of poking internals.
-
-### CoreEvent types (minimal starter set)
-- `CoreReady`
-- `CoreError`
+- `CoreReady`, `CoreError`
 - `SessionCreated(session_id)`
 - `MessageAdded(session_id, message)`
-- `ToolCallStarted(session_id, tool_call)`
-- `ToolCallResult(session_id, tool_result)`
-- `VoiceStatusChanged(status)`
+- `ToolCallStarted`, `ToolCallResult`
 
-### Message model (for CLI + Qt)
-- `Message(role, text, metadata)`
-- `metadata` includes optional `tool_name`, `tool_args`, `tool_result`, timing.
+## Settings ownership
 
-### Tool calls visibility
-- Mirror the current **TensorZero tool-call** shape.
-- UI should receive:
-  - Tool call started (with args)
-  - Tool result (with summary + full payload)
+Core owns `config.yaml` and `.env`. UIs request settings via `core.settings()`, submit changes via `SettingsPatch`, and core emits `SettingsChanged`.
 
-## 3) Settings ownership + UI changes
+## Voice UI integration
 
-**Core owns config.yaml and .env.**
+Voice UI is a **standalone module** (see [voice_ui.md](voice_ui.md)). UIs interact with it directly:
 
-### Settings flow
-1. UI requests `core.settings()` → returns a `SettingsSnapshot`.
-2. UI edits fields and submits a `SettingsPatch`.
-3. Core validates, writes config.yaml + .env, and emits `SettingsChanged` event.
-4. Core **reinitializes** dependent services (voice pipeline, TensorZero, skills).
+```python
+# Qt or CLI calls Voice UI module directly
+voice_ui.start()           # Start listening pipeline
+voice_ui.stop()            # Stop listening
+voice_ui.trigger_listen()  # Skip wakeword
+voice_ui.speak(text)       # TTS
+voice_ui.state             # Current state (waiting, listening, processing, speaking)
+```
 
-### Notes
-- UI must never write config files directly.
-- Core should preserve unknown keys/comments (already supported by persistence layer).
+When Voice UI transcribes speech, it emits events. The calling UI can forward transcribed text to `SpokeCore.send_message()` and speak responses via `voice_ui.speak()`.
 
-## 4) Async & race-condition plan
+## Implementation status
 
-### Issues to prevent
-- Starting voice while core not ready.
-- Multiple overlapping voice sessions.
-- STT finishing after session closed.
-- UI sending message while agent loop not idle.
+| Step | Status |
+|------|--------|
+| `core/` module (SpokeCore, events, session) | ✅ |
+| CLI UI using SpokeCore | ✅ |
+| Settings schema + SchemaSettingsWidget | ✅ |
+| Voice module with state machine | ✅ |
+| Modular voice backends (STT, TTS, VAD, Wake) | ✅ |
+| Qt UI integration | ✅ |
 
-### Proposed fixes
-- **State machine** inside `VoiceController`:
-  - `STOPPED → IDLE → LISTENING → PROCESSING → IDLE`
-- **Single-threaded async queue** for events → prevents reordering.
-- `asyncio.Lock` around voice start/stop + agent loop.
-- Each voice/agent request has a **request_id**; ignore late results for stale IDs.
+## Design notes
 
-## 5) Session/Chat handling for UIs
-
-- `ChatSession` holds:
-  - `session_id`
-  - ordered list of messages (user/assistant/tool)
-  - agent loop state (busy/idle)
-
-UIs should render the session from events, and can rehydrate from `session.messages`.
-
-## 6) UI-to-UI orchestration
-
-- **CLI and Qt** can call `core.start_voice()` and `core.stop_voice()`.
-- Voice UI can run standalone (uses `SpokeCore` only).
-- A UI can subscribe to events to reflect **voice status**.
-
-## 7) Implementation steps
-
-1. ✅ Create `core/` module with `SpokeCore`, `events`, `session`.
-2. ✅ Wrap existing agent loop + skills loader inside `SpokeCore`.
-3. ✅ Create CLI UI using `SpokeCore`.
-4. ✅ Create settings schema, module discovery, and SchemaSettingsWidget.
-5. ✅ Create `voice/` module with pure-Python VoiceController and state machine.
-6. ✅ Make all voice backends modular (STT, TTS, VAD, Wake) with discovery.
-7. ✅ Add voice methods to SpokeCore (start_voice, stop_voice).
-8. ✅ Create QtVoiceAdapter for Qt UI (thin wrapper with signals).
-9. ✅ Update Qt main_window.py to use QtVoiceAdapter.
-
-## Resolved questions
-
-| Question | Decision |
-|----------|----------|
-| Async vs sync core? | **Async core** with `asyncio.run()` for CLI. |
-| Separate process for voice? | **Same process**, modular controller. |
-| Separate agent.py file? | **No** - agent loop is simple, lives in `app.py`. |
-| CLI needs aioconsole? | **No** - blocking `input()` + yield works fine. |
-
-## Lessons from CLI implementation
-
-1. **Keep it minimal**: The CLI only needed 2 files (~150 lines total). Don't over-engineer.
-2. **Reuse existing modules**: `SkillService`, `TensorZeroClient`, and `config/` already do the heavy lifting.
-3. **Event timing**: Blocking `input()` requires `await asyncio.sleep(0)` after `send_message()` to process queued events.
-4. **Error propagation**: The event system handles errors well when exceptions are caught and emitted as `CoreError`.
+- **No voice methods on SpokeCore**: Keeps core focused on chat/skills. Voice is orthogonal.
+- **Loose coupling**: Voice UI emits events; UIs bridge them to SpokeCore as needed.
+- **Reuse existing modules**: `SkillService`, `TensorZeroClient`, and `config/` handle heavy lifting.
