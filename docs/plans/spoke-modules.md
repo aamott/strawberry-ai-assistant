@@ -29,8 +29,6 @@ ai-pc-spoke/src/strawberry/
 └── config/                     # Config loaders
 ```
 
-TODO: Include hub skill registration in the core. Currently only implemented in the QT UI.
-
 ## SpokeCore API
 
 ```python
