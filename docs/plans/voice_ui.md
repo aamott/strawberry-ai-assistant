@@ -1,3 +1,6 @@
+---
+description: Voice interface summary and design. Use this when working on the VoiceCore or voice interface.
+---
 # VoiceInterface Plan
 
 ## VoiceInterface
