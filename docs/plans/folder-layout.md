@@ -18,7 +18,7 @@ ai-pc-spoke/
 │   ├── voice/          # Voice processing
 │   ├── shared/         # Shared code
 │   │   └── settings/   # SettingsManager (see docs/plans/settings/)
-│   └── config/         # Pydantic settings models
+│   └── config/         # Pydantic settings models (DEPRECATED - use shared/settings/)
 ├── config/             # Config files (settings.yaml, .env)
 ├── skills/             # User skill files (registered in spoke_core)
 └── tests/              # Test suite
@@ -95,10 +95,14 @@ ai-pc-spoke/src/strawberry/voice/
 
 **Config Files**
 ```
-ai-pc-spoke/config/
-├── settings.yaml            # All non-secret settings (organized by namespace)
-└── .env                     # Secrets (API keys, tokens)
+ai-pc-spoke/
+├── .env                     # Secrets (API keys, tokens) - at project root
+└── config/
+    ├── settings.yaml        # All non-secret settings (organized by namespace)
+    └── tensorzero.toml      # TensorZero LLM gateway configuration
 ```
+
+Note: The legacy `src/config/config.yaml` is deprecated in favor of `config/settings.yaml`.
 
 
 **Qt Settings UI**
@@ -106,7 +110,7 @@ ai-pc-spoke/config/
 ai-pc-spoke/src/strawberry/ui/qt/widgets/settings/
 ├── settings_dialog.py       # Main settings window with tabs
 ├── namespace_widget.py      # Renders one namespace section
-├── schema_widget.py         # Auto-renders single SettingField
+├── schema_field_widget.py   # Auto-renders single SettingField
 └── provider_widget.py       # Provider selection + sub-settings
 ```
 
