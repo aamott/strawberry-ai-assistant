@@ -22,6 +22,7 @@ This folder contains the comprehensive design for the Settings system, split int
 | Storage (YAML/Env) | ✅ Complete | `shared/settings/storage.py` |
 | Schema types | ✅ Complete | `shared/settings/schema.py` |
 | Qt Settings UI | ✅ Complete | `ui/qt/widgets/settings/` |
+| CLI Settings UI | ✅ Complete | `ui/cli/settings_menu.py` |
 | SpokeCore integration | ✅ Complete | `spoke_core/app.py` |
 | VoiceCore integration | ✅ Complete | `voice/voice_core.py` |
 | Backend schemas | ✅ Complete | Leopard, Orca, Pocket, Porcupine, FasterWhisper |

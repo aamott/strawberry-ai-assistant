@@ -1025,7 +1025,7 @@ class CLISettingsMenu:
 4. [x] Implement `NamespaceSettingsWidget`
 5. [x] Implement `ProviderSettingsWidget`
 6. [x] Implement `SchemaFieldWidget` (single field renderer)
-7. [ ] Implement `CLISettingsMenu` (optional, lower priority)
+7. [x] Implement `CLISettingsMenu`
 8. [x] Wire up settings dialog in main Qt app (uses new dialog when SettingsManager available)
 9. [x] Add tests for SettingsViewModel (covered in test_settings_manager.py)
 10. [x] Update existing settings dialogs to use new system (MainWindow uses new dialog)
@@ -1039,7 +1039,7 @@ class CLISettingsMenu:
 | `ProviderSettingsWidget` | ✅ Complete | Provider dropdown + inline sub-settings |
 | `SchemaFieldWidget` | ✅ Complete | Text, password, checkbox, select, action buttons |
 | `SettingsViewModel` | ✅ Complete | UI-friendly data access layer |
-| CLI Settings | ⏳ Not started | Lower priority |
+| CLI Settings | ✅ Complete | `ui/cli/settings_menu.py` |
 
 ---
 
