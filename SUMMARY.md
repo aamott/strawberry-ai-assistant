@@ -13,8 +13,8 @@
     - The skills registered to the Hub are available to all devices/spokes owned by the user
     - If the Spoke is not connected to the Hub, it can still execute its own skills
 - Registers skills to Hub and maintains heartbeat
-- **When online**: Routes LLM requests to Hub; Hub executes tools; Spoke only receives final responses
-- **When offline**: Runs full agent loop locally with TensorZero fallback to local Ollama
+- **When online**: Routes LLM requests to Hub; Hub executes tools and manages system prompts and tracks calling device through the token; Spoke only receives final responses.
+- **When offline**: Runs full agent loop locally with TensorZero fallback to other LLMs.
 - Has its own TensorZero for offline operation (separate from Hub's) and runs all hub chats through its own TensorZero.
 
 ## Auth & Tokens
