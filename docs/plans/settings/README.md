@@ -13,6 +13,20 @@ This folder contains the comprehensive design for the Settings system, split int
 | [settings-manager.md](./settings-manager.md) | Core SettingsManager - modular settings service with namespace isolation |
 | [settings-ui.md](./settings-ui.md) | Settings UI - schema-driven interface for viewing and editing settings |
 
+## Implementation Status
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| SettingsManager | ✅ Complete | `shared/settings/manager.py` |
+| SettingsViewModel | ✅ Complete | `shared/settings/view_model.py` |
+| Storage (YAML/Env) | ✅ Complete | `shared/settings/storage.py` |
+| Schema types | ✅ Complete | `shared/settings/schema.py` |
+| Qt Settings UI | ✅ Complete | `ui/qt/widgets/settings/` |
+| SpokeCore integration | ✅ Complete | `spoke_core/app.py` |
+| VoiceCore integration | ✅ Complete | `voice/voice_core.py` |
+| Backend schemas | ✅ Complete | Leopard, Orca, Pocket, Porcupine, FasterWhisper |
+| Old config deprecation | 🔄 In Progress | `config/` package still used for compat |
+
 ## Overview
 
 The settings system has two decoupled parts:
@@ -45,16 +59,23 @@ The Settings UI is a **consumer** of the SettingsManager that:
 
 ## Migration Path
 
-The current implementation has pieces scattered across:
-- `spoke_core/settings_schema.py` - Schema definitions
+### Old System (Deprecated)
 - `config/settings.py` - Pydantic models
-- `config/loader.py` - Loading/saving
-- `SpokeCore` - Settings API
+- `config/loader.py` - Loading from config.yaml
+- `config/persistence.py` - Saving changes
 
-This design consolidates into:
-- `shared/settings/` - SettingsManager package (see [settings-manager.md](./settings-manager.md))
-- Provider base classes keep their `get_settings_schema()` method
-- UIs use the new unified API
+### New System (Active)
+- `shared/settings/` - SettingsManager package
+- `config/settings.yaml` - New YAML format (namespaced)
+- `.env` - Secrets (API keys, tokens)
+
+### Backward Compatibility
+The old `config/` package is still used for backward compatibility during transition.
+Components that have been updated:
+- Qt App creates `SettingsManager` and passes to `MainWindow`
+- `SpokeCore` accepts optional `SettingsManager`, syncs with Pydantic model
+- `VoiceCore` accepts optional `SettingsManager`, registers backend namespaces
+- Qt Settings Dialog uses new schema-driven UI when `SettingsManager` available
 
 ## Related Documents
 

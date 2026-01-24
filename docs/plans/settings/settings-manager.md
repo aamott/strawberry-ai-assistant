@@ -849,17 +849,29 @@ def create_app() -> tuple[SpokeCore, VoiceCore]:
 
 ## Implementation Steps
 
-1. [ ] Create `shared/settings/` package structure
-2. [ ] Implement `SettingField`, `FieldType`, `ActionResult` (move from spoke_core)
-3. [ ] Implement `YamlStorage` and `EnvStorage` classes
-4. [ ] Implement `SettingsManager` class
-5. [ ] Create `SPOKE_CORE_SCHEMA` (migrate existing)
-6. [ ] Create `VOICE_CORE_SCHEMA` (new)
-7. [ ] Update `SpokeCore` to use SettingsManager
-8. [ ] Update `VoiceCore` to use SettingsManager
-9. [ ] Update provider base classes to self-register
-10. [ ] Migrate existing config loading
-11. [ ] Update tests
+1. [x] Create `shared/settings/` package structure
+2. [x] Implement `SettingField`, `FieldType`, `ActionResult` (move from spoke_core)
+3. [x] Implement `YamlStorage` and `EnvStorage` classes
+4. [x] Implement `SettingsManager` class
+5. [x] Create `SPOKE_CORE_SCHEMA` (migrate existing)
+6. [x] Create `VOICE_CORE_SCHEMA` (new)
+7. [x] Update `SpokeCore` to use SettingsManager
+8. [x] Update `VoiceCore` to use SettingsManager
+9. [x] Update provider base classes to self-register (Leopard, Orca, Pocket, Porcupine, FasterWhisper)
+10. [x] Migrate existing config loading (Qt app and VoiceInterface create SettingsManager)
+11. [x] Update tests (18 tests in test_settings_manager.py)
+
+## Migration Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `shared/settings/` package | ✅ Complete | manager, schema, storage, view_model |
+| `SpokeCore` integration | ✅ Complete | Registers namespace, syncs with Pydantic |
+| `VoiceCore` integration | ✅ Complete | Registers namespace + backend namespaces |
+| Qt App entry point | ✅ Complete | Creates SettingsManager, passes to MainWindow |
+| VoiceInterface entry point | ✅ Complete | Creates SettingsManager |
+| Backend settings schemas | ✅ Complete | Leopard, Orca, Pocket, Porcupine, FasterWhisper |
+| Old config/ deprecation | 🔄 In Progress | Still used for backward compat |
 
 ---
 

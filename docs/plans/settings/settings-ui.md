@@ -1019,16 +1019,27 @@ class CLISettingsMenu:
 
 ## Implementation Steps
 
-1. [ ] Create `shared/settings/view_model.py`
-2. [ ] Create `ui/qt/widgets/settings/` directory structure
-3. [ ] Implement `SettingsDialog` (main window)
-4. [ ] Implement `NamespaceSettingsWidget`
-5. [ ] Implement `ProviderSettingsWidget`
-6. [ ] Refactor existing `SchemaSettingsWidget` to `SchemaFieldWidget`
+1. [x] Create `shared/settings/view_model.py`
+2. [x] Create `ui/qt/widgets/settings/` directory structure
+3. [x] Implement `SettingsDialog` (main window with tabs)
+4. [x] Implement `NamespaceSettingsWidget`
+5. [x] Implement `ProviderSettingsWidget`
+6. [x] Implement `SchemaFieldWidget` (single field renderer)
 7. [ ] Implement `CLISettingsMenu` (optional, lower priority)
-8. [ ] Wire up settings dialog in main Qt app
-9. [ ] Add tests for SettingsViewModel
-10. [ ] Update existing settings dialogs to use new system
+8. [x] Wire up settings dialog in main Qt app (uses new dialog when SettingsManager available)
+9. [x] Add tests for SettingsViewModel (covered in test_settings_manager.py)
+10. [x] Update existing settings dialogs to use new system (MainWindow uses new dialog)
+
+## UI Implementation Status
+
+| Widget | Status | Notes |
+|--------|--------|-------|
+| `SettingsDialog` | ✅ Complete | Tabs per namespace, Apply/OK/Cancel |
+| `NamespaceSettingsWidget` | ✅ Complete | Groups settings by section |
+| `ProviderSettingsWidget` | ✅ Complete | Provider dropdown + inline sub-settings |
+| `SchemaFieldWidget` | ✅ Complete | Text, password, checkbox, select, action buttons |
+| `SettingsViewModel` | ✅ Complete | UI-friendly data access layer |
+| CLI Settings | ⏳ Not started | Lower priority |
 
 ---
 
