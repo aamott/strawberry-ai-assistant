@@ -26,7 +26,7 @@ This folder contains the comprehensive design for the Settings system, split int
 | SpokeCore integration | ✅ Complete | `spoke_core/app.py` |
 | VoiceCore integration | ✅ Complete | `voice/voice_core.py` |
 | Backend schemas | ✅ Complete | Leopard, Orca, Pocket, Porcupine, FasterWhisper |
-| Old config deprecation | 🔄 In Progress | `config/` package still used for compat |
+| Old config deprecation | ✅ Complete | `config/` package deprecated with warnings |
 
 ## Overview
 
