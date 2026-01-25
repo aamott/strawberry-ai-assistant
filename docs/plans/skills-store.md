@@ -84,6 +84,60 @@ Recommendation:
 
 In V1, `permissions` can be informational; in V2 they become enforceable.
 
+### Settings & Configuration
+
+Skills should interpret configuration using the central `SettingsManager`. This ensures users get a GUI (Qt/Web) and CLI to configure the skill without editing files manually.
+
+**Method 1: Python Schema (Recommended)**
+
+The entrypoint module can define a `SETTINGS_SCHEMA` variable (list of `SettingField`).
+
+```python
+from strawberry.shared.settings.schema import SettingField, FieldType
+
+# Define settings that will appear in the UI
+SETTINGS_SCHEMA = [
+    SettingField(
+        key="api_key",
+        label="API Key",
+        type=FieldType.PASSWORD,
+        secret=True,
+        description="Get your key from api.weather.com"
+    ),
+    SettingField(
+        key="units",
+        label="Units",
+        type=FieldType.SELECT,
+        options=["metric", "imperial"],
+        default="metric"
+    )
+]
+
+class WeatherSkill:
+    def __init__(self, settings_manager=None):
+        # Namespace is automatically assigned: "skills.<repo_name>"
+        # e.g. "skills.my_cool_skill"
+        self.settings = settings_manager
+    
+    def get_weather(self, city):
+        # Access settings at runtime
+        units = self.settings.get("skills.my_cool_skill", "units")
+        # ...
+```
+
+**Method 2: Manifest (Simple)**
+
+For basic needs, define them in `strawberry_skill.json`. The loader will convert these to a `SETTINGS_SCHEMA` automatically.
+
+```json
+{
+  "settings": [
+    { "key": "api_key", "type": "password", "label": "API Key" },
+    { "key": "default_city", "type": "text", "default": "London" }
+  ]
+}
+```
+
 ## Loader Changes (to support repo folders cleanly)
 
 ### Current behavior
@@ -100,7 +154,14 @@ In V1, `permissions` can be informational; in V2 they become enforceable.
   - Determine entrypoint file via:
     - manifest `entrypoint` if present, else
     - priority list (`skill.py`, `<repo>.py`, `main.py`, `__init__.py`)
+  - Determine entrypoint file via:
+    - manifest `entrypoint` if present, else
+    - priority list (`skill.py`, `<repo>.py`, `main.py`, `__init__.py`)
   - Load only that module as the repo’s entry module
+  - **Register Settings**:
+    - Check module for `SETTINGS_SCHEMA`.
+    - Or check manifest for `"settings"`.
+    - Register namespace `skills.<repo_name>` with `SettingsManager`.
 
 ### Imports / module namespace (critical)
 
@@ -205,11 +266,11 @@ Also:
 - Define skill repo layout + entrypoint priority.
 - Define naming guidelines to avoid class collisions.
 - Define trusted-plugin warning language.
-- Draft docs describing:
-  - authoring a repo
-  - helper modules layout
-  - local testing
   - dependency rules
+- **Create "Skill Developer Guide"**:
+  - A copy-paste template for a new skill (repo structure, `skill.py` with schema, `strawberry_skill.json`).
+  - Explanation of how to add settings easily.
+  - How to test locally.
 
 ### Milestone B — Loader upgrade (V1)
 
