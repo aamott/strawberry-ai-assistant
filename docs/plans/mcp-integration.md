@@ -1,5 +1,35 @@
 # MCP Integration Plan
 
+## Implementation Status (2026-01-25)
+
+**Phases 1-4 Complete.** Core MCP integration is implemented and tested.
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1. Client Foundation | ✅ Complete | `mcp/` module with client, config, registry, adapter |
+| 2. Settings Integration | ✅ Complete | YAML config parsing from `settings.yaml` |
+| 3. SkillService Integration | ✅ Complete | `load_skills_async()`, Gatekeeper MCP support |
+| 4. Documentation Flow | ✅ Complete | MCP tools in `get_system_prompt()` |
+| 5. UI Polish | ⏳ Pending | MCP Servers tab in Settings (future) |
+| 6. Hub Integration | ⏳ Pending | Central MCP servers (future) |
+
+**Files Created:**
+- `ai-pc-spoke/src/strawberry/mcp/__init__.py`
+- `ai-pc-spoke/src/strawberry/mcp/config.py` - `MCPServerConfig` dataclass
+- `ai-pc-spoke/src/strawberry/mcp/client.py` - `MCPClient` wrapper
+- `ai-pc-spoke/src/strawberry/mcp/registry.py` - `MCPRegistry` multi-server manager
+- `ai-pc-spoke/src/strawberry/mcp/adapter.py` - `MCPSkillAdapter` (tool → SkillInfo)
+- `ai-pc-spoke/src/strawberry/mcp/settings.py` - Settings loader
+- `ai-pc-spoke/src/strawberry/mcp/settings_schema.py` - UI schema
+- `ai-pc-spoke/tests/test_mcp.py` - 30 unit tests (all passing)
+
+**Modified Files:**
+- `ai-pc-spoke/pyproject.toml` - Added `mcp>=1.0` dependency
+- `ai-pc-spoke/src/strawberry/skills/service.py` - MCP integration
+- `ai-pc-spoke/src/strawberry/skills/sandbox/gatekeeper.py` - MCP skill allowlist
+
+---
+
 ## Overview
 
 Integrate **Model Context Protocol (MCP)** servers into Strawberry's skill system so that:
