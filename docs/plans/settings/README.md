@@ -1,5 +1,5 @@
 ---
-description: Index for settings system design documents
+description: Index for settings system design documents. When working with the Settings Manager, start here. 
 ---
 
 # Settings System Design
@@ -12,6 +12,11 @@ This folder contains the comprehensive design for the Settings system, split int
 |----------|-------------|
 | [settings-manager.md](./settings-manager.md) | Core SettingsManager - modular settings service with namespace isolation |
 | [settings-ui.md](./settings-ui.md) | Settings UI - schema-driven interface for viewing and editing settings |
+
+## TODO
+- [ ] How do we add a health status? If a user needs to update an API key, they should see that the skill is unhealthy and a message about it. If an MCP server is down, they should see that it is unhealthy and a message about it. 
+    - [ ] a red outline around the setting should indicate that it is unhealthy
+- [ ] How do we integrate setting descriptions? The QT UI can display them as tooltips, but the schema needs a way to include them. 
 
 ## Implementation Status
 
