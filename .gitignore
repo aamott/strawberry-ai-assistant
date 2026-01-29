@@ -11,3 +11,4 @@ venv/
 __pycache__/
 *.pyc
 ai-hub/.env.test
+ai-pc-spoke/config/settings.yaml
