@@ -44,45 +44,50 @@ flowchart TD
         - ~~`LocalAgentRunner` (tool loop, legacy code blocks)~~
       - Keep `SpokeCore` as an orchestrator facade that wires these. ✅
 
-- **[MAINTAINABILITY] Deterministic “offline-only hooks” in send_message are fragile**
+- ~~**[MAINTAINABILITY] Deterministic “offline-only hooks” in send_message are fragile**~~ ✅ Done
   - **Type**: refactor
-  - **Checkbox**: [ ]
+  - **Checkbox**: [x]
   - **Priority**: P2
   - **Difficulty**: M
   - **Files**:
     - `ai-pc-spoke/src/strawberry/spoke_core/app.py`
+    - `ai-pc-spoke/src/strawberry/spoke_core/settings_schema.py`
   - **Description**:
-    - `send_message()` contains special parsing: if user text contains “use search_skills” or “python_exec must use … device.*(…)” it triggers immediate tool execution.
-    - This couples product behavior to tests and makes behavior hard to reason about.
-    - Refactor direction:
-      - Move deterministic behavior behind a flag/config (e.g. `core.testing.deterministic_tool_hooks`) or a separate `DeterministicToolHook` injected only in tests.
+    - ~~`send_message()` contains special parsing: if user text contains “use search_skills” or “python_exec must use … device.*(…)” it triggers immediate tool execution.~~
+    - ~~This couples product behavior to tests and makes behavior hard to reason about.~~
+    - ~~Refactor direction:~~
+      - ~~Move deterministic behavior behind a flag/config (e.g. `core.testing.deterministic_tool_hooks`) or a separate `DeterministicToolHook` injected only in tests.~~
+  - **Resolution**: Added `testing.deterministic_tool_hooks` setting (default: false). Tests that rely on deterministic hooks now enable this flag explicitly.
 
-
-- **[PERFORMANCE/UX] get_available_models performs synchronous network I/O**
+- ~~**[PERFORMANCE/UX] get_available_models performs synchronous network I/O**~~ ✅ Done
   - **Type**: performance / UX
-  - **Checkbox**: [ ]
+  - **Checkbox**: [x]
   - **Priority**: P3
   - **Difficulty**: S
   - **Files**:
     - `ai-pc-spoke/src/strawberry/spoke_core/app.py`
   - **Description**:
-    - `_get_available_models()` uses `httpx.get(...)` synchronously. If this is called from a UI thread it can freeze the UI.
-    - Fix direction:
-      - Cache results with TTL, or make it async and have settings UI fetch in background.
+    - ~~`_get_available_models()` uses `httpx.get(...)` synchronously. If this is called from a UI thread it can freeze the UI.~~
+    - ~~Fix direction:~~
+      - ~~Cache results with TTL, or make it async and have settings UI fetch in background.~~
+  - **Resolution**: Added 60-second TTL cache to `_get_available_models()` to avoid repeated synchronous network calls.
 
-- **[API CLEANUP] SpokeCore relies on private members/methods**
+- ~~**[API CLEANUP] SpokeCore relies on private members/methods**~~ ✅ Done
   - **Type**: refactor
-  - **Checkbox**: [ ]
+  - **Checkbox**: [x]
   - **Priority**: P3
   - **Difficulty**: M
   - **Files**:
     - `ai-pc-spoke/src/strawberry/spoke_core/app.py`
+    - `ai-pc-spoke/src/strawberry/llm/tensorzero_client.py`
+    - `ai-pc-spoke/src/strawberry/shared/settings/manager.py`
   - **Description**:
-    - `await self._llm._get_gateway()` (private method)
-    - `env_storage = self._settings_manager._env_storage` (private attribute)
-    - This makes upgrades and refactors brittle.
-    - Fix direction:
-      - Promote needed functionality to public APIs (e.g. `TensorZeroClient.start()` / `SettingsManager.set_secret(...)`).
+    - ~~`await self._llm._get_gateway()` (private method)~~
+    - ~~`env_storage = self._settings_manager._env_storage` (private attribute)~~
+    - ~~This makes upgrades and refactors brittle.~~
+    - ~~Fix direction:~~
+      - ~~Promote needed functionality to public APIs (e.g. `TensorZeroClient.start()` / `SettingsManager.set_secret(...)`).~~
+  - **Resolution**: Added `TensorZeroClient.start()` and `SettingsManager.set_env()` public methods.
 
 ## Suggested Target Design (Stability First)
 
