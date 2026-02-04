@@ -12,3 +12,5 @@ __pycache__/
 *.pyc
 ai-hub/.env.test
 ai-pc-spoke/config/settings.yaml
+ai-hub/.env.bak
+ai-pc-spoke/config/.env.bak
