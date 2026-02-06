@@ -23,6 +23,7 @@ A class that can be imported by external classes.
 `ai-pc-spoke/src/strawberry/voice/`
 voice/
 ├── voice_core.py
+├── About-Voice-Core.md # read this if you're working VoiceCore
 ├── stt/
 │   ├── base.py
 │   ├── discovery.py
