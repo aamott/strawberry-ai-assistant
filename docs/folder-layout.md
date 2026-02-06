@@ -2,7 +2,7 @@
 description: Folder layout overview
 ---
 
-# Folder Layout
+# ai-pc-spoke Folder Layout
 
 **Overview**
 ```
