@@ -15,22 +15,8 @@ This folder contains the comprehensive design for the Settings system.
 
 ## Recent Enhancements
 
-- **Decoupled Providers**: The `voice.*` namespace naming convention has been replaced with a flexible Template Pattern, allowing any module to define how its provider namespaces are constructed (e.g., `plugins.image.{value}`).
 - **List Support**: A new `FieldType.LIST` allows managing lists of strings (e.g., for ordering providers or JSON payloads).
 - **External Validation**: The `SettingsManager` now supports registering external validation callbacks, enabling complex cross-field or system-state validation (e.g., verifying a TTS backend is actually installed).
-
-## Implementation Status
-
-| Component | Status | Location |
-|-----------|--------|----------|
-| SettingsManager | ✅ Complete | `shared/settings/manager.py` |
-| SettingsViewModel | ✅ Complete | `shared/settings/view_model.py` |
-| Storage (YAML/Env) | ✅ Complete | `shared/settings/storage.py` |
-| Schema types | ✅ Complete | `shared/settings/schema.py` |
-| Qt Settings UI | ✅ Complete | `ui/qt/widgets/settings/` |
-| CLI Settings UI | ✅ Complete | `ui/cli/settings_menu.py` |
-| SpokeCore integration | ✅ Complete | `spoke_core/app.py` |
-| VoiceCore integration | ✅ Complete | `voice/voice_core.py` |
 
 ## Overview
 
