@@ -10,7 +10,11 @@ venv/
 # python
 __pycache__/
 *.pyc
+
+# other
 ai-hub/.env.test
-ai-pc-spoke/config/settings.yaml
 ai-hub/.env.bak
 ai-pc-spoke/config/.env.bak
+*/config/settings.yaml
+*/config/mcp_config.json
+*.bak
