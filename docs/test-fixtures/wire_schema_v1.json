@@ -1,0 +1,70 @@
+{
+  "_comment": "Sample payloads for wire schema v1 contract tests. Both Hub and Spoke should be able to parse these without error.",
+  "skill_register_request": {
+    "skills": [
+      {
+        "class_name": "WeatherSkill",
+        "function_name": "get_current_weather",
+        "signature": "get_current_weather(location: str) -> Dict",
+        "docstring": "Get current weather for a location."
+      },
+      {
+        "class_name": "TimeSkill",
+        "function_name": "get_time",
+        "signature": "get_time() -> str",
+        "docstring": null
+      }
+    ]
+  },
+  "skill_execute_request": {
+    "device_name": "living_room_pc",
+    "skill_name": "WeatherSkill",
+    "method_name": "get_current_weather",
+    "args": [],
+    "kwargs": {"location": "Seattle"}
+  },
+  "skill_execute_response_success": {
+    "success": true,
+    "result": {"temp": 55, "unit": "F", "condition": "Cloudy"},
+    "error": null,
+    "device": "living_room_pc"
+  },
+  "skill_execute_response_failure": {
+    "success": false,
+    "result": null,
+    "error": "Skill execution failed: WeatherSkill.get_current_weather - ConnectionError: API unavailable",
+    "device": "living_room_pc"
+  },
+  "skill_search_response": {
+    "results": [
+      {
+        "path": "WeatherSkill.get_current_weather",
+        "signature": "get_current_weather(location: str) -> Dict",
+        "summary": "Get current weather for a location.",
+        "docstring": "Get current weather for a location.\n\nArgs:\n    location: City name.",
+        "devices": ["living_room_pc"],
+        "device_names": ["Living Room PC"],
+        "device_count": 1,
+        "is_local": false
+      }
+    ],
+    "total": 1
+  },
+  "ws_skill_request": {
+    "v": 1,
+    "type": "skill_request",
+    "request_id": "uuid-1234",
+    "skill_name": "WeatherSkill",
+    "method_name": "get_current_weather",
+    "args": [],
+    "kwargs": {"location": "Seattle"}
+  },
+  "ws_skill_response": {
+    "v": 1,
+    "type": "skill_response",
+    "request_id": "uuid-1234",
+    "success": true,
+    "result": {"temp": 55},
+    "error": null
+  }
+}

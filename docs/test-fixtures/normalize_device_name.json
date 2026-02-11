@@ -1,0 +1,22 @@
+{
+  "_comment": "Canonical test vectors for normalize_device_name(). Both Hub and Spoke must produce identical output for identical input. Update this file when the normalization algorithm changes.",
+  "cases": [
+    {"input": "Living Room PC",    "expected": "living_room_pc"},
+    {"input": "John's Laptop",     "expected": "johns_laptop"},
+    {"input": "Büro-Computer",     "expected": "buro_computer"},
+    {"input": "café-machine",      "expected": "cafe_machine"},
+    {"input": "My  Cool   Device", "expected": "my_cool_device"},
+    {"input": "---dashes---",      "expected": "dashes"},
+    {"input": "UPPER",             "expected": "upper"},
+    {"input": "already_normal",    "expected": "already_normal"},
+    {"input": "  padded  ",        "expected": "padded"},
+    {"input": "a",                 "expected": "a"},
+    {"input": "",                  "expected": ""},
+    {"input": "123",               "expected": "123"},
+    {"input": "device-01",         "expected": "device_01"},
+    {"input": "naïve résumé",      "expected": "naive_resume"},
+    {"input": "hello@world!",      "expected": "helloworld"},
+    {"input": "__leading__",       "expected": "leading"},
+    {"input": "MixedCase-Name",    "expected": "mixedcase_name"}
+  ]
+}
