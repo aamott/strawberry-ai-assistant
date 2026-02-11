@@ -1,6 +1,6 @@
 # Strawberry AI Assistant
 
-A multi-device AI assistant platform. A central **Hub** server orchestrates LLM calls and routes skill execution across one or more **Spoke** clients, each of which can also operate fully offline.
+A multi-device AI assistant platform. A central **Hub** server (typically on a home server or cloud instance) orchestrates LLM calls and routes skill execution across one or more **Spoke** clients on separate machines, each of which can also operate fully offline. Hub and Spoke are independent codebases that communicate over a versioned wire protocol (see [`docs/wire-schema-v1.md`](docs/wire-schema-v1.md)).
 
 For the full architecture description, see [`SUMMARY.md`](SUMMARY.md).
 
@@ -42,7 +42,7 @@ graph TD
 
 ## Getting Started
 
-### 1. Create a shared virtual environment
+### 1. Create a virtual environment
 
 ```bash
 python3 -m venv .venv
@@ -155,7 +155,6 @@ See the [Skill Interaction Tester guide](docs/Skill_Interaction_Tester.md).
 │   │   └── skills/         #     Skill loading and sandbox execution
 │   ├── skills/             #   User-installed skill repos
 │   └── config/             #   settings.yaml, tensorzero.toml
-├── shared/                 # Contracts & types shared between Hub and Spoke
 └── docs/                   # Guides, plans, and reference docs
 ```
 
@@ -207,3 +206,4 @@ ruff check --fix .                      # Lint + auto-fix
 | CLI commands | [`ai-pc-spoke/.../cli/CLI.md`](ai-pc-spoke/src/strawberry/ui/cli/CLI.md) |
 | Test CLI spec | [`ai-pc-spoke/.../test_cli/TEST_CLI_DESIGN.md`](ai-pc-spoke/src/strawberry/ui/test_cli/TEST_CLI_DESIGN.md) |
 | Skill tester | [`docs/Skill_Interaction_Tester.md`](docs/Skill_Interaction_Tester.md) |
+| Wire schema (Hub↔Spoke) | [`docs/wire-schema-v1.md`](docs/wire-schema-v1.md) |

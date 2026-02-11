@@ -1,6 +1,6 @@
 # Hub
 - Central coordinator for all devices/spokes
-- Manages LLM orchestration via TensorZero embedded gateway with fallback support
+- Uses TensorZero python library with embedded gateway to connect to LLMs
 - **Executes tool calls when online** - runs the agent loop with `devices` object for cross-device skill access
 - Routes skill calls to target devices via WebSocket
 - Manages sessions, user accounts, and device authentication
@@ -12,7 +12,7 @@
     - The Hub can then execute these skills on the Spoke
     - The skills registered to the Hub are available to all devices/spokes owned by the user
     - If the Spoke is not connected to the Hub, it can still execute its own skills
-- Registers skills to Hub and maintains heartbeat
+- Registers skills to Hub and maintains heartbeat (websockets)
 - **When online**: Routes LLM requests to Hub; Hub executes tools and manages system prompts and tracks calling device through the token; Spoke only receives final responses.
 - **When offline**: Runs full agent loop locally with TensorZero fallback to other LLMs.
 - Has its own TensorZero for offline operation (separate from Hub's) and runs all hub chats through its own TensorZero.
@@ -102,10 +102,10 @@ The top level code components are:
   - LLM
 2. Settings
   - Configuration management (handles schemas for every component)
-3. UI's ([CLI](ai-pc-spoke/src/strawberry/ui/cli), [Qt](ai-pc-spoke/src/strawberry/ui/qt))
-  - Uses Spoke Core
-  - Can enable VoiceInterface, see its status, trigger STT (skip wakeword), and receive TTS to display in the UI like a user message.
-  - A UI can make a settings interface that uses the Settings object to access and modify settings. The QT UI does this and autopopulates settings, like wake word, STT, TTS, etc.
+3. UI's ([CLI](ai-pc-spoke/src/strawberry/ui/cli), [Qt](ai-pc-spoke/src/strawberry/ui/qt)), [VoiceInterface](ai-pc-spoke/src/strawberry/ui/voice_interface)
+  - Use Spoke Core
+  - Can enable VoiceInterface, see its status, trigger STT, and send text to TTS.
+  - A UI can use the SettingsManager to access and modify settings for the rest of the app.
 4. VoiceInterface (voice-only example UI)
   - Orchestrates VoiceCore + SpokeCore for a voice-only experience
   - Uses VoiceCore components (wakeword, STT, VAD, TTS)
