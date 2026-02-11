@@ -165,7 +165,9 @@ class TestSpokeTensorZeroIntegration:
             assert response.variant in ("gemini_variant", "local_ollama"), (
                 f"Expected fallback variant, got {response.variant}"
             )
-            print(f"\n[E2E] Fallback response from {response.variant}: {response.content[:50]}")
+            print(
+                f"\n[E2E] Fallback response from {response.variant}: {response.content[:50]}"
+            )
         finally:
             await client.close()
 
