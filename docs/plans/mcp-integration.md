@@ -1,5 +1,7 @@
 # MCP Integration Plan
 
+> **Status:** Implemented (MCP servers load as first-class skills; see `skills/mcp_skill/` and tests in `ai-pc-spoke/tests/test_mcp_skill.py`).
+
 ## Goal
 
 Turn MCP servers (defined in `config/mcp_config.json`) into first-class Strawberry skills.
