@@ -197,13 +197,23 @@ ai-pc-spoke/src/strawberry/
 
 ## 9. Media Control Dispatch Duplicated and Imperative
 
-- [ ] **Title:** Share a small media-command dispatcher across platforms and legacy
+- [x] **Title:** Share a small media-command dispatcher across platforms and legacy
   - **Priority:** Medium
   - **Difficulty:** Low-Medium
   - **Applicable Filepaths:**
+    - `skills/media_control_skill/media_dispatch.py` (new)
     - `skills/media_control_skill/skill.py`
     - `skills/_legacy/media_control_skill.py`
-  - **Description:** Media command handling is currently hard-coded with platform-specific branches (Windows SendKeys, macOS AppleScript, Linux playerctl) and duplicated between repo and legacy skills. Extract a shared dispatcher with per-platform adapters and typed command enums to reduce branching, improve testability, and keep legacy in sync with the primary implementation.
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `skills/media_control_skill/media_dispatch.py` — shared dispatcher with:
+      - `send_media_command(command, macos_app="Spotify")` — routes to platform adapter
+      - Platform adapters: `_send_windows`, `_send_macos`, `_send_linux`
+      - Volume adapters: `set_system_volume`, `get_system_volume` with Linux (wpctl/pactl/amixer) and Windows (CoreAudio PowerShell) support
+      - Dispatch tables: `WIN_MEDIA_KEYS`, `MAC_MEDIA_VERBS`
+    - Refactored repo `skill.py` (372→120 lines): removed all platform-specific methods, delegates to `media_dispatch`
+    - Refactored legacy `media_control_skill.py` (161→110 lines): removed duplicated dispatch tables and `_send_media_command`, imports from shared module; `get_volume` now uses real `get_system_volume` instead of hardcoded 75
+    - All tests pass, ruff clean, live test_cli verified
 
 
 - [ ] Hanging Tests
