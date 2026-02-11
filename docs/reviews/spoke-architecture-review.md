@@ -67,42 +67,33 @@ ai-pc-spoke/src/strawberry/
 
 ## 2. Duplicated Proxy Hierarchies Across Three Modules
 
-- [ ] **Title:** Unify the proxy class hierarchy for skill access
+- [x] **Title:** Unify the proxy class hierarchy for skill access
   - **Priority:** High
   - **Difficulty:** Medium-High
   - **Applicable Filepaths:**
-    - `skills/service.py` — `_DeviceProxy`, `_SkillProxy`, `_DeviceManagerProxy`, `_LocalDeviceSkillsProxy`, `_RemoteDeviceProxy`, `_RemoteSkillProxy`
-    - `skills/sandbox/executor.py` — `_DirectSkillProxy`, `_DirectDeviceProxy`
-    - `skills/remote.py` — `RemoteSkillProxy`, `RemoteSkillClassProxy`, `LocalDeviceProxy`, `RemoteDeviceProxy`, `DeviceManager`
-  - **Description:** There are three parallel proxy hierarchies doing essentially the same job: giving LLM-generated code access to skills via `device.SkillName.method()`. Here's the overlap:
-
-    | Concept | `service.py` | `executor.py` | `remote.py` |
-    |---|---|---|---|
-    | Local device proxy | `_DeviceProxy` | `_DirectDeviceProxy` | `LocalDeviceProxy` |
-    | Local skill proxy | `_SkillProxy` | `_DirectSkillProxy` | *(via LocalDeviceProxy)* |
-    | Remote device proxy | `_RemoteDeviceProxy` | — | `RemoteDeviceProxy` |
-    | Remote skill proxy | `_RemoteSkillProxy` | — | `RemoteSkillProxy` |
-    | Device manager | `_DeviceManagerProxy` | — | `DeviceManager` |
-    | Search skills | `_DeviceProxy.search_skills` | `_DirectDeviceProxy.search_skills` | `DeviceManager.search_skills` |
-    | Describe function | `_DeviceProxy.describe_function` | `_DirectDeviceProxy.describe_function` | `DeviceManager.describe_function` |
-
-    The core problem is that when the sandboxed path (Pyodide via Deno) is disabled, the direct-execution path in `executor.py` creates *its own* lighter proxies that duplicate the richer ones in `service.py`. Meanwhile, `remote.py` has a *third* set for Hub-routed calls.
-
-    **Suggested fix:** Define one canonical `DeviceProxy` interface (protocol or abstract base), then implement `LocalDeviceProxy` and `RemoteDeviceProxy` against it. Both sandbox and direct paths should use the same implementations — they differ only in *how* the method wrapper executes, not in shape.
+    - `skills/proxies.py` — canonical `DeviceProxy`, `SkillProxy` (local device access)
+    - `skills/sandbox/executor.py` — now imports `DeviceProxy` from proxies.py
+    - `skills/remote.py` — canonical `DeviceManager` hierarchy (remote/Hub access)
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Eliminated `_DirectSkillProxy` and `_DirectDeviceProxy` from `executor.py` — sandbox fallback now uses `DeviceProxy` from `proxies.py`
+    - Removed orphaned `DeviceManagerProxy`, `LocalDeviceSkillsProxy`, `RemoteDeviceProxy`, `RemoteSkillProxy` from `proxies.py` — these duplicated `remote.py`'s `DeviceManager` hierarchy and were never used at runtime
+    - Result: two canonical proxy paths — `proxies.DeviceProxy` (local) and `remote.DeviceManager` (Hub/remote)
+    - Updated test mock fixtures to wire `call_method` for the unified `SkillProxy`
+    - All tests pass, ruff clean, live test_cli verified
 
 ---
 
 ## 3. Dead / Unreachable Code in `_RemoteSkillProxy`
 
-- [ ] **Title:** Remove dead code and fix inconsistent async handling in `_RemoteSkillProxy`
+- [x] **Title:** Remove dead code and fix inconsistent async handling in `_RemoteSkillProxy`
   - **Priority:** Medium
   - **Difficulty:** Low
-  - **Applicable Filepaths:** `skills/service.py` (lines 1765–1821)
-  - **Description:** The `method_wrapper` inside `_RemoteSkillProxy.__getattr__` contains:
-    1. A `raise NotImplementedError(...)` for when a running loop is detected
-    2. An unreachable `if False:` block below the raise (line 1815–1818)
-
-    The `NotImplementedError` means remote-device skill calls from sandbox code paths silently fail at runtime. This should either be implemented (via the bridge's async callback mechanism) or the code path should raise a clear user-facing error *before* the sandbox attempts the call.
+  - **Applicable Filepaths:** `skills/proxies.py` (formerly `skills/service.py`)
+  - **Status:** ✅ Complete (resolved as part of Finding #2)
+  - **What was done:**
+    - The entire `RemoteSkillProxy` class (with its dead `if False:` block and `NotImplementedError`) was removed from `proxies.py` during Finding #2's cleanup of orphaned proxy classes
+    - Remote skill calls now exclusively use `remote.py`'s `DeviceManager` → `RemoteDeviceProxy` → `RemoteSkillClassProxy` → `RemoteSkillProxy` chain, which has proper sync/async bridging via `_run_async()`
 
 ---
 
