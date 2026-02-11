@@ -138,52 +138,60 @@ ai-pc-spoke/src/strawberry/
 
 ## 6. `SpokeCore` Owns Too Many Responsibilities
 
-- [ ] **Title:** Extract event routing and skill management from `SpokeCore`
+- [x] **Title:** Extract event routing and skill management from `SpokeCore`
   - **Priority:** Medium
   - **Difficulty:** Medium
-  - **Applicable Filepaths:** `spoke_core/app.py` (664 lines, 34 methods)
-  - **Description:** `SpokeCore` is the "single entrypoint for all UIs" and currently handles:
-    - Settings loading and change propagation
-    - Hub connection management (delegated to `HubConnectionManager`, but still has `connect_hub`, `disconnect_hub`, `_schedule_hub_reconnection`)
-    - Skill loading, enabling/disabling, summaries, and load failures
-    - Session management (`new_session`, `get_session`)
-    - The full `send_message` → agent loop pipeline (130 lines in `send_message`)
-    - Event emission to listeners
-    - Model info, Ollama models lookup, OAuth actions
-
-    The `send_message` method (lines 321–449) is particularly dense — it builds system prompt, selects agent runner, runs the agent loop, handles errors, and emits events all in one chain.
-
-    **Suggested fix:** Extract skill-related methods into a `SkillManager` facade that `SpokeCore` delegates to. Consider also moving the `send_message` → `_agent_loop` pipeline into the `AgentRunner` layer (which already exists and could own more of this flow).
+  - **Applicable Filepaths:**
+    - `spoke_core/skill_manager.py` (new)
+    - `spoke_core/app.py`
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `spoke_core/skill_manager.py` — `SkillManager` facade wrapping `SkillService` with event emission
+      - Owns: skill loading (`load_and_emit`), shutdown, summaries, load failures, enable/disable with event broadcast, system prompt access
+      - Owns: deterministic tool hooks (`run_deterministic_hooks`, `_run_search_skills_hook`, `_run_python_exec_hook`) — extracted from the 130-line `send_message`
+    - Refactored `app.py`:
+      - `self._skills: SkillService` → `self._skill_mgr: SkillManager`
+      - `send_message` reduced from ~130 lines to ~30 lines — deterministic hooks delegated to `SkillManager`
+      - Skill query methods (`get_skill_summaries`, `get_skill_load_failures`, `set_skill_enabled`, `get_system_prompt`) now delegate to `SkillManager`
+      - Backward-compatible `skill_service` property returns `skill_mgr.service`
+    - All tests pass, ruff clean, live test_cli verified
 
 ---
 
 ## 7. Inconsistent Event Loop Bridging Patterns
 
-- [ ] **Title:** Standardize async-to-sync bridging across modules
+- [x] **Title:** Standardize async-to-sync bridging across modules
   - **Priority:** Low
   - **Difficulty:** Low
   - **Applicable Filepaths:**
-    - `skills/remote.py` (`_run_async`)
-    - `skills/service.py` (`_RemoteSkillProxy.method_wrapper`)
-    - `voice/voice_core.py` (`asyncio.run_coroutine_threadsafe`)
-  - **Description:** Three different patterns are used to call async code from sync contexts:
-    1. `remote.py` has `_run_async()` which uses `run_coroutine_threadsafe` or `asyncio.run()`
-    2. `service.py`'s `_RemoteSkillProxy` uses `asyncio.run()` directly (and raises `NotImplementedError` for the in-loop case)
-    3. `voice_core.py` uses `asyncio.run_coroutine_threadsafe(..., loop).result()`
-
-    Each has different error handling and thread-safety guarantees. A shared `run_sync(coro)` utility would centralize the decision and make the behavior consistent.
+    - `utils/async_bridge.py` (new)
+    - `skills/remote.py`
+    - `voice/voice_core.py`
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `utils/async_bridge.py` with two shared utilities:
+      - `run_sync(coro, timeout=30)` — run async from sync; auto-detects loop, offloads to thread pool if needed
+      - `schedule_on_loop(coro, loop, timeout=None)` — schedule on a specific loop from a worker thread
+    - Refactored `skills/remote.py`: replaced private `_run_async()` + local `_executor` + `TypeVar` with `run_sync` import
+    - Refactored `voice/voice_core.py`: replaced two inline `asyncio.run_coroutine_threadsafe()` calls with `schedule_on_loop`
+    - The third pattern (`_RemoteSkillProxy.method_wrapper` in old `service.py`) was already removed in Finding #2/#3
+    - All tests pass, ruff clean, live test_cli verified
 
 ---
 
 ## 8. Long Literal Blocks Driving Lint Noise
 
-- [ ] **Title:** Centralize long literal data to avoid E501 churn
+- [x] **Title:** Centralize long literal data to avoid E501 churn
   - **Priority:** Low
   - **Difficulty:** Low
   - **Applicable Filepaths:**
     - `skills/internet_skill/skill.py` and `skills/_legacy/internet_skill.py`
-    - Tests with long f-strings and comments (e.g., `tests/test_voice_core.py`, `tests/test_live_chat.py`)
-  - **Description:** Large inline snippets (sample search results, long URLs, verbose comments) routinely breach the 90-char limit and create recurring Ruff E501 noise. Moving these literals into small fixtures/constants (e.g., `data/` or module-level tuples) keeps code readable, shrinks functions, and prevents repeated lint fixes.
+    - Tests with long f-strings and comments
+  - **Status:** ✅ Already resolved
+  - **What was done:**
+    - All E501 violations were already fixed in a prior refactoring pass (Ruff E501 + C901 cleanup)
+    - `ruff check --select E501 src/ tests/` passes clean — no remaining long-literal issues
+    - No further action needed
 
 ---
 
