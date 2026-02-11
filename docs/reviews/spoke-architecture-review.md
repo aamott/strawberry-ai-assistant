@@ -99,31 +99,40 @@ ai-pc-spoke/src/strawberry/
 
 ## 4. Settings UI Implemented Three Times in Parallel
 
-- [ ] **Title:** Extract a shared settings editing controller
+- [x] **Title:** Extract a shared settings editing controller
   - **Priority:** Medium
   - **Difficulty:** Medium
   - **Applicable Filepaths:**
-    - `ui/cli/settings_menu.py` (408 lines)
-    - `ui/test_cli/settings_cli.py` (567 lines)
-    - `ui/gui_v2/components/settings_window.py` (598 lines)
-    - `shared/settings/view_model.py` (568 lines)
-  - **Description:** Three UIs (CLI, test CLI, Qt GUI) each implement their own field-editing logic — type dispatching (string/int/bool/list/backend-order), validation, add/remove/reorder for lists, and rendering. The `view_model.py` in `shared/settings` was created to centralize some of this, but `settings_menu.py` and `settings_cli.py` still duplicate the core editing logic rather than deferring to it.
-
-    **Suggested fix:** Move the "edit field by type" decision tree and list-manipulation commands into `view_model.py` (or a new `shared/settings/editor.py`). Each UI frontend then only needs to provide I/O adapters (`prompt()`, `print()`, `show_dialog()`), making the field editing logic testable independently of any UI.
+    - `shared/settings/editor.py` (new)
+    - `ui/cli/settings_menu.py`
+    - `ui/test_cli/settings_cli.py`
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `shared/settings/editor.py` with:
+      - `format_field_value(field, value)` — single source of truth for value rendering across all UIs
+      - `PendingChangeController` — manages buffered changes with validate/apply/discard/reset
+      - List helpers: `list_add`, `list_remove`, `list_move_up`, `list_move_down`
+      - `get_available_options(settings, field, current_items)` — shared option discovery
+    - Refactored `settings_cli.py` (567→452 lines): replaced duplicated `_render_field_value`, `_format_range`, `set_value`/`apply_changes`/`discard_changes`/`reset_field`/`has_pending_changes`/`get_pending_count`/`_get_available_options` with shared editor
+    - Refactored `settings_menu.py`: `_format_value` now delegates to shared `format_field_value`
+    - Exported new symbols from `shared/settings/__init__.py`
+    - All settings tests pass, ruff clean, live test_cli verified
 
 ---
 
 ## 5. `testing/runner.py` Mixes CLI Argument Parsing with Execution Logic
 
-- [ ] **Title:** Separate argument parsing from execution in `runner.py`
+- [x] **Title:** Separate argument parsing from execution in `runner.py`
   - **Priority:** Low
   - **Difficulty:** Low
-  - **Applicable Filepaths:** `ai-pc-spoke/src/strawberry/testing/runner.py` (744 lines)
-  - **Description:** After the C901 refactoring, `main()` is now cleaner, but still contains ~150 lines of `argparse` setup interleaved with dispatch logic. The subcommand handlers (`_cmd_failures`, `_cmd_grep`, etc.) accept a raw `args` namespace and type-cast fields inline (`int(args.before)`, `bool(args.fixed_strings)`). This means:
-    - Every handler re-validates the same fields
-    - Adding a new subcommand requires editing the monolithic `main()` parser
-
-    **Suggested fix:** Either adopt `argparse` subcommands (one sub-parser per mode) or create a `@dataclass RunnerConfig` that `main()` populates once and passes to handlers — removing inline `int()`/`bool()` casts from every handler.
+  - **Applicable Filepaths:** `ai-pc-spoke/src/strawberry/testing/runner.py`
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `@dataclass RunnerConfig` with typed fields for all CLI options (log reader, search, test-run)
+    - `main()` populates `RunnerConfig` once from argparse, then passes it to all `_cmd_*` handlers
+    - Eliminated all inline `int()`/`bool()` casts from `_cmd_failures`, `_cmd_show_failure`, `_cmd_tail_log`, `_cmd_test`, `_cmd_grep`, `_cmd_run_tests`
+    - `from_line`/`to_line` converted to `Optional[int]` in config (removed `_parse_line_range` helper)
+    - Ruff clean
 
 ---
 
