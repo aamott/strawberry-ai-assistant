@@ -9,7 +9,7 @@ Each finding includes a priority, difficulty estimate, and suggested action.
 
 ### Context
 
-This review was created after refactoring the `ai-pc-spoke` codebase to reduce McCabe complexity (C901 errors). During that work, several architectural patterns emerged that warrant attention — primarily around code duplication, god classes, and inconsistent abstractions.
+This review was created after refactoring the `ai-pc-spoke` codebase to reduce McCabe complexity (C901 errors). During that work, several architectural patterns emerged that warrant attention — primarily around code duplication, god classes, and inconsistent abstractions. Hopefully while implementing this we can reduce lines of code and improve maintainability.
 
 ### Key Files to Review First
 
@@ -50,22 +50,18 @@ ai-pc-spoke/src/strawberry/
 
 ## 1. `service.py` is a God Class (1820 lines, 85 symbols)
 
-- [ ] **Title:** Split `SkillService` and proxy classes out of `skills/service.py`
+- [x] **Title:** Split `SkillService` and proxy classes out of `skills/service.py`
   - **Priority:** High
   - **Difficulty:** Medium
   - **Applicable Filepaths:** `ai-pc-spoke/src/strawberry/skills/service.py`
-  - **Description:** This single file contains:
-    - `SkillService` (43 methods, 1177 lines) — loading, registration, sandbox management, system prompt generation, search, tool execution, and Hub routing
-    - 7 private proxy classes (`_DeviceProxy`, `_SkillProxy`, `_DeviceManagerProxy`, `_LocalDeviceSkillsProxy`, `_RemoteDeviceProxy`, `_RemoteSkillProxy`, `_SkillCallResult`)
-    - Module-level constants, helpers, and error hint tables
-
-    **Suggested split:**
-    | New module | Contents |
-    |---|---|
-    | `skills/proxies.py` | All `_*Proxy` classes + `_SkillCallResult` |
-    | `skills/prompt.py` | `get_system_prompt`, `_build_example_call`, `_placeholder_for_type` |
-    | `skills/tool_dispatch.py` | `execute_tool*`, `_tool_*`, `_format_search_results`, `_enrich_exec_error`, `_ERROR_HINTS` |
-    | `skills/service.py` | Lifecycle (load, register, heartbeat, shutdown) + top-level orchestration |
+  - **Status:** ✅ Complete
+  - **What was done:**
+    - Created `skills/proxies.py` — All proxy classes (`DeviceProxy`, `SkillProxy`, `DeviceManagerProxy`, `LocalDeviceSkillsProxy`, `RemoteDeviceProxy`, `RemoteSkillProxy`), `SkillCallResult`, `normalize_device_name`, `_SEARCH_STOP_WORDS`
+    - Created `skills/prompt.py` — `DEFAULT_SYSTEM_PROMPT_TEMPLATE`, `build_system_prompt()`, `build_example_call()`, `_placeholder_for_type()`
+    - Created `skills/tool_dispatch.py` — `_ERROR_HINTS`, `enrich_exec_error()`, `format_search_results()`
+    - Slimmed `skills/service.py` from ~1820 lines to ~1020 lines — now lifecycle + orchestration only, imports from new modules
+    - Backward compatibility preserved via re-exports in `service.py` (`SkillCallResult`, `normalize_device_name`, `DEFAULT_SYSTEM_PROMPT_TEMPLATE`)
+    - All tests pass, ruff clean
 
 ---
 
@@ -179,6 +175,37 @@ ai-pc-spoke/src/strawberry/
 
 ---
 
+## 8. Long Literal Blocks Driving Lint Noise
+
+- [ ] **Title:** Centralize long literal data to avoid E501 churn
+  - **Priority:** Low
+  - **Difficulty:** Low
+  - **Applicable Filepaths:**
+    - `skills/internet_skill/skill.py` and `skills/_legacy/internet_skill.py`
+    - Tests with long f-strings and comments (e.g., `tests/test_voice_core.py`, `tests/test_live_chat.py`)
+  - **Description:** Large inline snippets (sample search results, long URLs, verbose comments) routinely breach the 90-char limit and create recurring Ruff E501 noise. Moving these literals into small fixtures/constants (e.g., `data/` or module-level tuples) keeps code readable, shrinks functions, and prevents repeated lint fixes.
+
+---
+
+## 9. Media Control Dispatch Duplicated and Imperative
+
+- [ ] **Title:** Share a small media-command dispatcher across platforms and legacy
+  - **Priority:** Medium
+  - **Difficulty:** Low-Medium
+  - **Applicable Filepaths:**
+    - `skills/media_control_skill/skill.py`
+    - `skills/_legacy/media_control_skill.py`
+  - **Description:** Media command handling is currently hard-coded with platform-specific branches (Windows SendKeys, macOS AppleScript, Linux playerctl) and duplicated between repo and legacy skills. Extract a shared dispatcher with per-platform adapters and typed command enums to reduce branching, improve testability, and keep legacy in sync with the primary implementation.
+
+
+- [ ] Hanging Tests
+  - **Priority:** Medium
+  - **Difficulty:** Low
+  - **Applicable Filepaths:** `test_cli_live.py`, `test_live_chat.py`, `test_voice_live.py`
+  - **Description:** Some tests hang indefinitely
+  - **Notes:** All tests pass. The remaining files (test_cli_live.py, test_live_chat.py, test_voice_live.py) are likely the hangers — they need live services. They should be able to skip or warn the user instead of hanging. 
+---
+
 ## Summary
 
 | # | Finding | Priority | Difficulty |
@@ -190,3 +217,5 @@ ai-pc-spoke/src/strawberry/
 | 5 | `runner.py` arg parsing mixed with execution | Low | Low |
 | 6 | `SpokeCore` owns too many responsibilities | Medium | Medium |
 | 7 | Inconsistent async-to-sync bridging | Low | Low |
+| 8 | Long literal blocks driving lint noise | Low | Low |
+| 9 | Media control dispatch duplicated/imperative | Medium | Low-Medium |

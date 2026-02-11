@@ -172,7 +172,7 @@ strawberry-test --show-all              # Verbose
 strawberry-test --failures              # Review failures from last run
 ```
 
-Hub tests: `cd ai-hub && pytest tests/`
+Hub tests: `cd ai-hub && pytest tests/ --timeout 300`
 
 For the full set of test runner options, see [`docs/TESTING.md`](docs/TESTING.md).
 
