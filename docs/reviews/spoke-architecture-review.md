@@ -216,12 +216,22 @@ ai-pc-spoke/src/strawberry/
     - All tests pass, ruff clean, live test_cli verified
 
 
-- [ ] Hanging Tests
+- [x] Hanging Tests
   - **Priority:** Medium
   - **Difficulty:** Low
-  - **Applicable Filepaths:** `test_cli_live.py`, `test_live_chat.py`, `test_voice_live.py`
-  - **Description:** Some tests hang indefinitely
-  - **Notes:** All tests pass. The remaining files (test_cli_live.py, test_live_chat.py, test_voice_live.py) are likely the hangers — they need live services. They should be able to skip or warn the user instead of hanging. 
+  - **Applicable Filepaths:**
+    - `src/strawberry/llm/tensorzero_client.py`
+    - `tests/test_cli_live.py`
+    - `tests/test_live_chat.py`
+    - `tests/test_voice_live.py`
+  - **Status:** ✅ Complete
+  - **Root cause:** `TensorZeroClient.close()` called `__aexit__` on the embedded Rust gateway with no timeout — the Rust runtime sometimes never exits, blocking the Python event loop indefinitely. The `core` fixture teardown in `test_cli_live.py` called `core.stop()` which cascaded through `_llm.close()`.
+  - **What was done:**
+    - `TensorZeroClient.close()`: added `asyncio.wait_for(..., timeout=5.0)` around the gateway `__aexit__` call; logs a warning on timeout instead of hanging
+    - `test_cli_live.py`: fixture teardown now force-closes each component (`_llm`, `_skill_mgr`) individually with its own timeout; added `@pytest.mark.timeout(30-45)` to all async tests
+    - `test_live_chat.py`: added `@pytest.mark.timeout(15-60)` to all async tests
+    - `test_voice_live.py`: already had `@pytest.mark.timeout` — no changes needed
+    - Full suite now completes without hanging: all tests pass, 8 skipped (voice + env-gated)
 ---
 
 ## Summary
