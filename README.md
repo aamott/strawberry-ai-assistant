@@ -110,7 +110,7 @@ strawberry-gui                          # Graphical chat + voice
 
 ### Test CLI
 
-Headless interface for automated testing and scripting.
+Headless interface for automated testing and scripting. Includes live chat as well as a settings editor.
 
 ```bash
 python -m strawberry.ui.test_cli "What is 2+2?"            # Single message
