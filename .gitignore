@@ -18,3 +18,4 @@ ai-pc-spoke/config/.env.bak
 */config/settings.yaml
 */config/mcp_config.json
 *.bak
+ai-pc-spoke/config/.device_id
