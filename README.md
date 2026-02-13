@@ -96,8 +96,9 @@ The web frontend is served automatically from `ai-hub/frontend/dist/`. See the [
 ### CLI
 
 ```bash
-strawberry-cli                          # Interactive chat (default)
-strawberry-cli "What time is it?"       # One-shot message
+strawberry-cli --help                   # Show all commands
+strawberry-cli "What time is it?"       # One-shot message (default)
+strawberry-cli --interactive            # Interactive chat REPL
 strawberry-cli --settings               # Settings menu
 strawberry-cli skill-tester             # Skill interaction tester
 ```
