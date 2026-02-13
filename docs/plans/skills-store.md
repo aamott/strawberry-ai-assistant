@@ -261,7 +261,7 @@ Also:
 
 ## Milestones
 
-### Milestone A — Spec + docs (no code yet)
+### Milestone A — Spec + docs (no code yet) ✅
 
 - Define skill repo layout + entrypoint priority.
 - Define naming guidelines to avoid class collisions.
@@ -272,7 +272,7 @@ Also:
   - Explanation of how to add settings easily.
   - How to test locally.
 
-### Milestone B — Loader upgrade (V1)
+### Milestone B — Loader upgrade (V1) ✅
 
 - Update `SkillLoader` to:
   - scan `skills/*.py` (unchanged)
@@ -282,7 +282,7 @@ Also:
   - detect collisions and report clearly
 - Add tests that create a temporary `skills/<repo>/skill.py` layout.
 
-### Milestone C — Weather fix
+### Milestone C — Weather fix ✅
 
 - Add location normalization (`city,state` ⇒ `city,state,US`).
 - Add geocoding step + lat/lon weather fetch.
@@ -292,3 +292,43 @@ Also:
 
 - Per-skill venv + subprocess runner + RPC.
 - Optional enable/disable + allowlist + signature pinning.
+
+### Milestone E — Skill Store CLI ✅ (2026-02-13)
+
+Implemented a CLI-based skill store for browsing, installing, and managing skills.
+
+**New files:**
+- `src/strawberry/skills/store/__init__.py` — Package exports
+- `src/strawberry/skills/store/models.py` — `CatalogEntry`, `InstalledSkill` dataclasses
+- `src/strawberry/skills/store/catalog.py` — `SkillCatalog` loads/searches YAML catalog
+- `src/strawberry/skills/store/installer.py` — `SkillInstaller` clone/deps/track/uninstall
+- `src/strawberry/skills/store/cli.py` — CLI subcommands (list, search, install, uninstall, update, installed)
+- `src/strawberry/skills/store/skill_catalog.yaml` — Curated catalog (weather, news, internet)
+- `tests/test_skill_store.py` — 39 tests
+
+**Modified files:**
+- `src/strawberry/ui/cli/__main__.py` — `strawberry-cli store` subcommand routing + help epilog
+- `.gitignore` — Added `config/installed_skills.yaml`
+
+**CLI commands:**
+```
+strawberry-cli store list                    # Browse catalog
+strawberry-cli store search <query>          # Search by keyword
+strawberry-cli store install <name|url>      # Install from catalog or URL
+strawberry-cli store install <url> --force   # Reinstall
+strawberry-cli store uninstall <name>        # Remove skill + record
+strawberry-cli store update <name|--all>     # Git pull + re-check deps
+strawberry-cli store installed               # Show installed skills
+```
+
+**Features:**
+- Catalog-based install (by name) or custom git URL / local path
+- Automatic dependency detection (requirements.txt, pyproject.toml, catalog `requires`)
+- Pip install into project `.venv` with user confirmation
+- Install tracking in `config/installed_skills.yaml` (gitignored)
+- `[installed]` tag in catalog listings
+- Git clone with branch fallback, shallow clone (--depth 1)
+- Uninstall removes directory + install record
+
+**Verified:** Weather skill extracted to standalone repo, installed via store,
+loads correctly with SkillLoader (15 skills, 2 methods). Full test suite passes.
