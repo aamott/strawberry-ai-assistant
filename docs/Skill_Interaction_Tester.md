@@ -27,6 +27,113 @@ strawberry-cli skill-tester --skills-dir /path/to/skills
 .venv/bin/python -m strawberry.testing.skill_tester
 ```
 
+---
+
+## Agent Mode (for AI coding agents)
+
+A machine-parseable JSON-line interface designed for AI coding agents to
+experiment with skills programmatically. No ANSI, no prompts — just
+structured JSON on stdin/stdout.
+
+### Quick Start
+
+```bash
+# Start agent mode (loads skills once, reads commands from stdin)
+strawberry-cli skill-tester --agent
+
+# With a custom skills directory
+strawberry-cli skill-tester --agent --skills-dir /path/to/skills
+
+# Resume a previous session
+strawberry-cli skill-tester --agent --session session.json
+```
+
+### Protocol
+
+- **stdin**: One JSON object per line (command).
+- **stdout**: One JSON object per line (response).
+- **stderr**: Human-readable status messages during startup only.
+
+On startup, the first stdout line is a `ready` response:
+```json
+{"status": "ok", "type": "ready", "data": {"skills_count": 12, "tool_schemas": ["search_skills", "describe_function", "python_exec"], "session_entries": 0, "commands": [...]}}
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `{"command": "get_system_prompt"}` | Exact system prompt the LLM receives |
+| `{"command": "get_tool_schemas"}` | Tool JSON schemas as sent to the LLM |
+| `{"command": "get_skills"}` | Structured list of loaded skills + methods |
+| `{"command": "tool_call", "tool": "<name>", "arguments": {...}}` | Execute a tool call (search_skills, describe_function, python_exec) |
+| `{"command": "get_history"}` | Full conversation history (tool calls + results) |
+| `{"command": "clear_history"}` | Clear conversation history |
+| `{"command": "save_session", "path": "file.json"}` | Save session for later continuation |
+| `{"command": "load_session", "path": "file.json"}` | Load a previous session |
+| `{"command": "reload"}` | Reload skills from disk |
+| `{"command": "shutdown"}` | Exit cleanly |
+
+### Example: Full agent workflow
+
+```bash
+# Start the agent tester as a background process
+strawberry-cli skill-tester --agent &
+
+# 1. See what the LLM sees
+echo '{"command": "get_system_prompt"}' 
+echo '{"command": "get_tool_schemas"}'
+
+# 2. Search for skills (exactly as the LLM would)
+echo '{"command": "tool_call", "tool": "search_skills", "arguments": {"query": "weather"}}'
+
+# 3. Get details about a skill
+echo '{"command": "tool_call", "tool": "describe_function", "arguments": {"path": "WeatherSkill.get_current_weather"}}'
+
+# 4. Execute code (exactly as the LLM would)
+echo '{"command": "tool_call", "tool": "python_exec", "arguments": {"code": "print(device.WeatherSkill.get_current_weather(location=\"Seattle\"))"}}'
+
+# 5. Save session to continue later
+echo '{"command": "save_session", "path": "my_session.json"}'
+
+# 6. Shut down
+echo '{"command": "shutdown"}'
+```
+
+### Session Continuity
+
+Sessions let you save and resume a conversation:
+
+1. **Save**: `{"command": "save_session", "path": "session.json"}` writes the full history.
+2. **Resume**: Start with `--session session.json` to auto-load history on startup.
+3. **Continue**: New tool calls append to the restored history.
+
+This is useful for iterative experimentation — make some calls, save,
+adjust your approach, resume where you left off.
+
+### Response Format
+
+Success:
+```json
+{"status": "ok", "type": "tool_result", "data": {"tool": "search_skills", "arguments": {"query": "calc"}, "result": "Found 2 results:\n  CalcSkill.add(a: int, b: int) -> int — Add two numbers.\n  CalcSkill.multiply(a: int, b: int) -> int — Multiply two numbers.", "elapsed_ms": 1.23}}
+```
+
+Error:
+```json
+{"status": "error", "message": "Missing 'tool' field in tool_call command"}
+```
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/strawberry/testing/skill_tester_agent.py` | Agent-mode implementation |
+| `tests/test_skill_tester_agent.py` | 36 automated tests |
+
+---
+
+## Interactive Mode (for humans)
+
 ## Commands
 
 | Command | Description |
