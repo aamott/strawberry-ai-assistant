@@ -30,6 +30,53 @@ WebSocket messages include a top-level `"v"` field:
 
 ## Endpoints & Payloads
 
+### POST /api/devices/register
+
+Spoke registers (or reconnects) its device identity with the Hub. This is the
+first call a Spoke makes after health/auth checks. The Hub assigns a stable
+UUID `device_id` which the Spoke persists to disk and sends on reconnect.
+
+**Request:**
+```json
+{
+  "device_name": "Kitchen PC",
+  "device_id": "optional-previously-assigned-uuid"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `device_name` | string | yes | Display name for this device |
+| `device_id` | string | no | Previously assigned Hub UUID (for reconnect) |
+
+**Response:** `200 OK`
+```json
+{
+  "device_id": "a1b2c3d4-...",
+  "display_name": "Kitchen PC"
+}
+```
+
+> **Display name collision:** If another device under the same user already has
+> the same normalized name, the Hub auto-suffixes: `Kitchen PC` → `Kitchen PC 2`.
+
+### X-Device-Id Header
+
+After registration, the Spoke includes this header in all subsequent HTTP
+requests so the Hub knows which device is calling (required when multiple
+Spokes share one auth token):
+
+```
+X-Device-Id: a1b2c3d4-...
+```
+
+The WebSocket endpoint also accepts `device_id` as a query parameter:
+```
+/ws/device?token=...&device_id=a1b2c3d4-...
+```
+
+---
+
 ### POST /skills/register
 
 Spoke registers its available skills with the Hub.
