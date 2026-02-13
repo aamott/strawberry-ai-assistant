@@ -104,6 +104,49 @@ print(device.WeatherSkill.get_current_weather("roy, ut"))
 print(devices.living_room_pc.MediaControlSkill.set_volume(level=20))
 ```
 
+## Device-Agnostic Skills
+
+Some skills produce the same result regardless of which device runs them (e.g. calculators, weather APIs, search engines). You can mark these as **device-agnostic** so the Hub auto-routes to the healthiest available device and retries on failure.
+
+### How to declare
+
+Add `device_agnostic = True` as a class attribute:
+
+```python
+class CalculatorSkill:
+    """Basic math operations."""
+
+    device_agnostic = True
+
+    def add(self, a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+```
+
+### How the LLM calls it
+
+For device-agnostic skills, `search_skills` returns call examples using `devices.any.`:
+
+```python
+print(devices.any.CalculatorSkill.add(a=5, b=3))
+```
+
+The Hub picks the device with the most recent heartbeat and tries the next one if it fails.
+
+### When to use
+
+- Pure functions (math, string processing, data conversion)
+- API wrappers (weather, search, documentation lookups)
+- Anything that doesn't depend on local hardware or files
+
+### When NOT to use
+
+- Skills that control local hardware (lights, speakers, cameras)
+- Skills that read/write local files
+- Skills with side effects that aren't safe to retry
+
+> **⚠️ Side-effect warning:** If a device-agnostic skill partially executes on Device A and fails, the Hub retries on Device B. For skills with side effects (sending emails, making purchases), this could cause **duplicate actions**. Only mark a skill as `device_agnostic` if retrying on a different device is safe, or if the skill is idempotent.
+
 ## Configuration / Environment Variables
 
 If your skill needs configuration:
