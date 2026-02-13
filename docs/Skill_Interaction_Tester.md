@@ -17,11 +17,14 @@ When the LLM interacts with skills, it sees a system prompt, tool definitions, a
 ```bash
 cd ai-pc-spoke
 
-# Recommended: module entrypoint (loads skills from src/ by default)
-.venv/bin/python -m strawberry.testing.skill_tester
+# Via the unified CLI (recommended)
+strawberry-cli skill-tester
 
 # With a custom skills directory
-.venv/bin/python -m strawberry.testing.skill_tester --skills-dir /path/to/skills
+strawberry-cli skill-tester --skills-dir /path/to/skills
+
+# Or directly via module entrypoint
+.venv/bin/python -m strawberry.testing.skill_tester
 ```
 
 ## Commands

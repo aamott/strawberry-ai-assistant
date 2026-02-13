@@ -96,10 +96,13 @@ The web frontend is served automatically from `ai-hub/frontend/dist/`. See the [
 ### CLI
 
 ```bash
-strawberry-cli                          # Interactive chat
+strawberry-cli                          # Interactive chat (default)
+strawberry-cli "What time is it?"       # One-shot message
+strawberry-cli --settings               # Settings menu
+strawberry-cli skill-tester             # Skill interaction tester
 ```
 
-Type `/voice` for voice mode, `/help` for all commands. See the [CLI design doc](ai-pc-spoke/src/strawberry/ui/cli/CLI.md).
+Type `/voice` for voice mode, `/help` for all commands. See the [CLI README](ai-pc-spoke/src/strawberry/ui/cli/README.md).
 
 ### Qt GUI
 
@@ -108,17 +111,17 @@ strawberry-gui                          # Graphical chat + voice
 # or: python -m strawberry.ui.gui_v2
 ```
 
-### Test CLI
+### One-Shot / Scripting
 
-Headless interface for automated testing and scripting. Includes live chat as well as a settings editor.
+The CLI also supports headless one-shot mode for automated testing and scripting:
 
 ```bash
-python -m strawberry.ui.test_cli "What is 2+2?"            # Single message
-python -m strawberry.ui.test_cli --interactive              # Interactive mode
-python -m strawberry.ui.test_cli "Hello" --json --offline   # JSON output, offline
+strawberry-cli "What is 2+2?"                    # Single message
+strawberry-cli "Hello" --json --offline           # JSON output, offline
+strawberry-cli "Hello" --quiet                    # Only print final response
 ```
 
-See the full spec in [`TEST_CLI_DESIGN.md`](ai-pc-spoke/src/strawberry/ui/test_cli/TEST_CLI_DESIGN.md).
+See the full spec in [`TEST_CLI_DESIGN.md`](ai-pc-spoke/src/strawberry/ui/cli/TEST_CLI_DESIGN.md).
 
 ### Voice-Only
 
@@ -131,6 +134,8 @@ strawberry-voice                        # Wake-word → STT → LLM → TTS loop
 Step into the LLM's shoes — issue tool calls (`search_skills`, `describe_function`, `python_exec`) against real loaded skills and inspect the exact prompts and results.
 
 ```bash
+strawberry-cli skill-tester
+# Or directly:
 python -m strawberry.testing.skill_tester
 ```
 
@@ -203,7 +208,7 @@ ruff check --fix .                      # Lint + auto-fix
 | Testing guide | [`docs/TESTING.md`](docs/TESTING.md) |
 | Folder layout | [`docs/folder-layout.md`](docs/folder-layout.md) |
 | Offline mode design | [`docs/OFFLINE_MODE_DESIGN.md`](docs/OFFLINE_MODE_DESIGN.md) |
-| CLI commands | [`ai-pc-spoke/.../cli/CLI.md`](ai-pc-spoke/src/strawberry/ui/cli/CLI.md) |
-| Test CLI spec | [`ai-pc-spoke/.../test_cli/TEST_CLI_DESIGN.md`](ai-pc-spoke/src/strawberry/ui/test_cli/TEST_CLI_DESIGN.md) |
+| CLI guide | [`ai-pc-spoke/.../cli/README.md`](ai-pc-spoke/src/strawberry/ui/cli/README.md) |
+| CLI design spec | [`ai-pc-spoke/.../cli/TEST_CLI_DESIGN.md`](ai-pc-spoke/src/strawberry/ui/cli/TEST_CLI_DESIGN.md) |
 | Skill tester | [`docs/Skill_Interaction_Tester.md`](docs/Skill_Interaction_Tester.md) |
 | Wire schema (Hub↔Spoke) | [`docs/wire-schema-v1.md`](docs/wire-schema-v1.md) |
