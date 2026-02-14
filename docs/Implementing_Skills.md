@@ -136,6 +136,36 @@ print(devices.hub.CalculatorSkill.add(a=5, b=3))
 
 The Hub picks the connected device with the most recent heartbeat and tries the next one if it fails.
 
+### MCP skill defaults and overrides
+
+MCP-generated skills are device-agnostic by default. You can control this at two levels:
+
+1. **Global default** (for all MCP-generated skills):
+   - Settings namespace: `skills.mcp_skill`
+   - Key: `default_device_agnostic`
+   - Default: `true`
+2. **Per-server override** in `config/mcp_config.json`:
+   - Key: `device_agnostic` inside each server block
+
+Example:
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "serverUrl": "https://mcp.context7.com/mcp",
+      "device_agnostic": true
+    },
+    "Home Assistant": {
+      "serverUrl": "https://example.local/api/mcp",
+      "device_agnostic": false
+    }
+  }
+}
+```
+
+Use per-server `device_agnostic: false` for tools tied to local hardware or files.
+
 ### When to use
 
 - Pure functions (math, string processing, data conversion)
