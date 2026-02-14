@@ -198,14 +198,15 @@ ruff check --fix .                      # Lint + auto-fix
 
 ---
 
-## Further Reading
+## Docs Index
 
 | Topic | Link |
 |-------|------|
 | Architecture overview | [`SUMMARY.md`](SUMMARY.md) |
 | Hub details & API | [`ai-hub/README.md`](ai-hub/README.md) |
 | Spoke details | [`ai-pc-spoke/README.md`](ai-pc-spoke/README.md) |
-| Implementing skills | [`docs/Implementing_Skills.md`](docs/Implementing_Skills.md) |
+| Implementing skills | [`docs/Implementing_Skills.md`](docs/Implementing_Skills.md) — for skill authors |
+| Skill system (internals) | [`docs/SKILL_SYSTEM.md`](docs/SKILL_SYSTEM.md) — for core developers |
 | Testing guide | [`docs/TESTING.md`](docs/TESTING.md) |
 | Folder layout | [`docs/folder-layout.md`](docs/folder-layout.md) |
 | Offline mode design | [`docs/OFFLINE_MODE_DESIGN.md`](docs/OFFLINE_MODE_DESIGN.md) |

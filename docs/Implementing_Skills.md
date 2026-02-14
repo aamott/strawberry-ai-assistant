@@ -1,5 +1,8 @@
 # Strawberry Skills
 
+This guide is for people writing skills (not core system internals).
+For hub/spoke architecture details, see `docs/SKILL_SYSTEM.md`.
+
 This document describes how to implement a Strawberry skill as a **repo-cloneable skill**.
 
 A “skill repo” is any folder cloned into:
@@ -125,13 +128,13 @@ class CalculatorSkill:
 
 ### How the LLM calls it
 
-For device-agnostic skills, `search_skills` returns call examples using `devices.any.`:
+For device-agnostic skills, the Hub exposes calls through `devices.hub`:
 
 ```python
-print(devices.any.CalculatorSkill.add(a=5, b=3))
+print(devices.hub.CalculatorSkill.add(a=5, b=3))
 ```
 
-The Hub picks the device with the most recent heartbeat and tries the next one if it fails.
+The Hub picks the connected device with the most recent heartbeat and tries the next one if it fails.
 
 ### When to use
 
@@ -176,6 +179,14 @@ From `ai-pc-spoke/`:
 ### 2) Sanity-check discovery
 
 If your repo is in `skills/<repo_name>/`, it should be discovered automatically when the Spoke loads skills.
+
+### 2.5) Sanity-check device-agnostic metadata
+
+If you set `device_agnostic = True`, run a quick chat query for your skill and confirm
+`search_skills` reports:
+
+- `device_agnostic: true`
+- `preferred_device: "hub"`
 
 ### 3) Live LLM tests
 
