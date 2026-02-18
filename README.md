@@ -1,4 +1,4 @@
-# Strawberry AI Assistant
+# [Strawberry AI Assistant](https://github.com/aamott/strawberry-ai-assistant)
 
 A multi-device AI assistant platform. A central **Hub** server (typically on a home server or cloud instance) orchestrates LLM calls and routes skill execution across one or more **Spoke** clients on separate machines, each of which can also operate fully offline. Hub and Spoke are independent codebases that communicate over a versioned wire protocol (see [`docs/wire-schema-v1.md`](docs/wire-schema-v1.md)).
 
